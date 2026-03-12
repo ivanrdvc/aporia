@@ -1,0 +1,183 @@
+# Review Architecture
+
+## Strategy Layer
+
+Revu supports multiple review strategies, each backed by a different agent runtime. The
+`Reviewer` resolves a strategy by key from a DI factory based on `.revu.json` config:
+
+```
+.revu.json: "strategy": "core" | "copilot" | "claude-code"
+                    │
+                    ▼
+            ┌───────────────┐
+            │    Reviewer    │  resolves strategy, caps comments,
+            │                │  filters findings, builds summary
+            └───────┬───────┘
+                    │ strategyFactory(key)
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+  ┌───────────┐ ┌─────────┐ ┌────────────┐
+  │  Core     │ │ Copilot │ │ ClaudeCode │
+  │ Strategy  │ │Strategy │ │  Strategy  │
+  │           │ │         │ │  (future)  │
+  │ IChatClient│ │CopilotCli│ │ Claude CLI │
+  │ direct API│ │ JSON-RPC│ │            │
+  └───────────┘ └─────────┘ └────────────┘
+```
+
+All strategies implement `IReviewStrategy.Review()` → `ReviewResult`. Same tools, same prompts,
+same output contract. The `Reviewer` doesn't know or care which runtime produced the findings.
+
+## CoreStrategy
+
+The default strategy. Built from scratch using direct LLM API calls via `IChatClient`.
+
+### Goals
+
+- The reviewer does the analysis. It has direct tools to read files, search code, and explore the
+  codebase. It does not delegate its thinking.
+- Explorers exist for context management. When a cross-file question would pollute the reviewer's
+  context with raw file data, an explorer handles it and returns a compressed conclusion.
+- Guardrails, explicit budgets, and observability are required because agent behavior is
+  non-deterministic.
+
+### Design principles
+
+- The reviewer IS the reviewer, not a dispatcher, not an orchestrator. It reads the diff, analyzes
+  the code, and produces findings.
+- Explorers are scoped workers for cross-file analytical questions. They have tools, can make
+  multiple calls, but return structured output (not raw files, not free-text observations).
+- The return format prevents abuse, not the prompt. The structured output schema prevents raw file
+  dumps. Enforcement is structural, not prompt-based.
+- Explorers are a context-management escape hatch, not the default execution path.
+
+## Architecture
+
+Given a PR, a reasoning agent reads all the changes, analyzes the code with full tool access, spawns
+explorers only for cross-file analytical work, then produces a final review.
+
+```
+┌──────────────────────────────┐
+│         Reviewer Agent       │
+│  (reasoning model + tools)   │
+│                              │
+│  Tools: FetchFile, SearchCode│
+│         ListDirectory,       │
+│         Explore              │
+│                              │
+│  1. Analyze visible code     │
+│  2. Use direct tools for     │
+│     quick lookups            │
+│  3. Explore for cross-file   │
+│     analytical work          │
+│  4. Produce findings         │
+└──────┬──┬──┬─────────────────┘
+       │  │  │  dynamic, 0-N
+       ▼  ▼  ▼
+  Explorer agents
+  (each answers a specific cross-file
+   question, returns structured JSON)
+```
+
+The reviewer (`ModelKey.Reasoning`) gets the diff and has full tool access. It analyzes the code
+itself, uses direct tools for quick lookups, and spawns explorers only for concrete analytical work
+at cross-file scope: questions that require reading and comparing multiple files.
+
+Explorers (`ModelKey.Default`) are agentic. They have the same tools and can make multiple calls.
+But they return structured output. If an explorer fails to produce valid structured output, the
+result is an error message. Raw text never flows back to the reviewer.
+
+### How it's built
+
+- **Agent-as-tool**: the explorer is a full agent with its own tools, exposed to the reviewer as a
+  callable tool wrapped by a `DelegatingAIFunction` guard. The reviewer sees a tool it can call
+  with a natural language query; it doesn't know there's an agent behind it. Same MAF pattern as
+  before, but now the reviewer also has direct tools, so Explore is one option among
+  many, not the only path.
+- **Structured explorer output**: the output schema prevents abuse. The model can't use Explore as
+  a file reader because the schema doesn't support raw file content. On parse failure, the reviewer
+  gets an error, not raw text.
+- **Batch tools**: `FetchFile` and `SearchCode` accept `string[]` arrays, multiple paths or
+  queries in one call. This reduces LLM roundtrips since reasoning models tend to issue tool calls
+  sequentially. The tools execute all items in parallel via `Task.WhenAll`.
+- **SearchCode validation**: queries containing code characters (`;{}=<>!&|,`) or more than two
+  words are rejected with feedback. A wildcard fallback (`query*`) fires when exact search returns
+  nothing, since ADO treats PascalCase identifiers as atomic tokens.
+- **Two-tier model split**: a strong reasoning model reviews (analysis, synthesis), cheap fast
+  models explore (follow objectives, fetch context, compress evidence).
+- **Parallel tool calling**: `AllowMultipleToolCalls = true` on the reviewer's `ChatOptions`
+  requests the model issue multiple tool calls per turn. Combined with
+  `AllowConcurrentInvocation = true` on `FunctionInvocationOptions`, tools execute in parallel.
+  Effectiveness varies by model. Claude uses it well; reasoning models (o-series) don't support it.
+- **Guardrails**: explorer spawn count capped per review (`MaxExplorationsPerReview`), tool
+  roundtrips per explorer capped (`ExplorerMaxRoundtrips`), reviewer roundtrips capped
+  (`ReviewerMaxRoundtrips`), concurrency bounded (`MaxConcurrentExplorations`). Sessions captured
+  for debugging when enabled.
+
+### Skills
+
+Skills are domain-specific review knowledge that the reviewer can load on demand. Each skill is a
+`SKILL.md` file (YAML frontmatter + markdown instructions) under `Revu/Skills/`, following the
+[Agent Skills](https://agentskills.io/) open standard.
+
+MAF's `FileAgentSkillsProvider` handles discovery, parsing, and tool registration. It's added to the
+reviewer agent as an `AIContextProvider` and uses progressive disclosure:
+
+```
+Advertise:   skill names + descriptions injected into instructions   (~100 tokens/skill, cached)
+Load:        reviewer calls load_skill(name)                         (tool use)
+Delivery:    full instructions returned as tool result                (messages layer, per-review)
+Resources:   reviewer calls read_skill_resource(name, file)          (supplementary files, on demand)
+```
+
+Since skills ship with Revu (not per-repo), the advertisement and tools are identical across all
+reviews, so the tools + system prompt layers stay cacheable.
+
+Skills are reviewer capabilities, not project configuration. They represent what the reviewer
+*knows*, not what the project requests. A project doesn't opt into security review. The reviewer
+loads the security skill when it sees security-relevant code.
+
+### Reviewer context layers
+
+The reviewer agent's input is composed from multiple independent sources via MAF's
+`AIContextProvider` pipeline. Each provider injects its own instructions, tools, or messages.
+`BuildReviewPrompt` only handles the diff — all metadata flows through providers.
+
+| Layer                 | Source                                      | Content                                |
+|-----------------------|---------------------------------------------|----------------------------------------|
+| Instructions          | `Prompts.BuildReviewerInstructions()`       | How to review (rules, severity, format)|
+| Instructions (merged) | `PrContextProvider`                         | PR title/desc/commits + project context + rules from `.revu.json` |
+| Instructions (merged) | `LearningsProvider` (planned)               | Learnings from past review feedback    |
+| Tools (advertised)    | `FileAgentSkillsProvider`                   | Skill names + descriptions             |
+| User message          | `BuildReviewPrompt(diff)`                   | The diff                               |
+
+Providers read per-review data from `AgentSession.StateBag`, populated by the strategy before
+`RunAsync`. Adding a new context source = new provider class + register in `AIContextProviders`.
+No signature changes to `IReviewStrategy`, `Reviewer`, or `BuildReviewPrompt`.
+
+### System prompt structure
+
+Prompt text lives in `Review/Prompts.cs`, separate from strategy wiring.
+
+The reviewer prompt is built by `BuildReviewerInstructions()` (static, no parameters) and contains
+only review methodology. All dynamic context — PR metadata, project context, rules — flows through
+`PrContextProvider` via `StateBag`. Each concern is wrapped in its own XML tag so the model parses
+sections unambiguously.
+
+Ordering follows primacy/recency attention patterns:
+- **Primacy** (top): `<role>` and `<workflow>`: identity and the process.
+- **Middle**: `<exploration_guidance>`, `<finding_format>`, `<severity_definitions>`,
+  `<summary_format>`: reference material the model consults as needed.
+- **Recency** (bottom): `<code_fix>`, then provider-injected context (`<pr_context>`,
+  `<project_context>`, `<additional_rules>`).
+
+Each finding carries a `Severity` (critical / warning / info) defined by impact type — security,
+logic bug, suggestion. `Reviewer.cs` sorts findings by severity, takes the top `maxComments` as
+inline PR comments, and pushes the rest into a collapsible summary section. Within a severity tier,
+findings preserve model order; a secondary sort (e.g. feedback-driven reranking) may be added later.
+
+Explorer instructions are a separate constant (`ExplorerInstructions`), different agent, different
+job. Nothing is shared between reviewer and explorer prompts. The explorer prompt uses XML tags
+(`<role>`, `<workflow>`, `<output>`) and is ordered: identify files via paths or SearchCode first,
+fetch them, compare patterns, then output ONLY the JSON result (no tool calls in the same response
+because the parser can't extract JSON from a message that also contains tool calls).

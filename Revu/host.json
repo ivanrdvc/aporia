@@ -1,0 +1,32 @@
+{
+  "version": "2.0",
+  "telemetryMode": "OpenTelemetry",
+  "logging": {
+    "logLevel": {
+      "default": "Information",
+      "Azure.Core": "Warning",
+      "Host": "Warning",
+      "Microsoft.Azure.WebJobs": "Warning",
+      "Worker": "Warning",
+      "Function": "Information"
+    }
+  },
+  "extensions": {
+    "queues": {
+      "maxPollingInterval": "00:00:02",
+      "batchSize": 1,
+      "maxDequeueCount": 3,
+      "visibilityTimeout": "00:12:00"
+    }
+  },
+  "retry": {
+    "strategy": "exponentialBackoff",
+    "maxRetryCount": 3,
+    "minimumInterval": "00:00:10",
+    "maximumInterval": "00:05:00"
+  },
+  "functionTimeout": "00:10:00",
+  "concurrency": {
+    "dynamicConcurrencyEnabled": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  // All fields are optional. Omit anything you don't need — defaults apply.
+
+  "review": {
+    // Which review strategy to use: "core", "copilot", "claude-code"
+    "strategy": "core",
+
+    // Max inline comments per PR run
+    "maxComments": 5
+  },
+
+  "files": {
+    // Extra file extensions to review (merged with defaults: .cs, .ts, .py, .js, .jsx, .tsx, .go, .java)
+    "allowedExtensions": [".rs", ".rb"],
+
+    // Extra glob patterns to skip (merged with defaults: bin, obj, generated, node_modules, lockfiles, minified, vendor)
+    "ignore": ["**/docs/**", "**/migrations/**"]
+  },
+
+  // Team-specific review rules injected into the LLM prompt (merged with defaults: none)
+  "rules": [
+    "We use MediatR for all command handling — flag direct service calls",
+    "All public API endpoints must have authorization attributes"
+  ],
+
+  // Repo-specific context injected into the LLM prompt
+  "context": "This is a microservices project using CQRS pattern. Domain layer must never reference infrastructure."
+}
