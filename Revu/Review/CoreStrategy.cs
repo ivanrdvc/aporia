@@ -75,7 +75,8 @@ public class CoreStrategy(
         session.StateBag.SetValue(SessionKeys.ProjectConfig, config);
 
         var response = await reviewer.RunAsync(prompt, session, cancellationToken: ct);
-        return response.ExtractReviewResult(logger);
+        return response.ExtractResult<ReviewResult>(logger)
+            ?? new([], "Review completed but failed to parse structured output.");
     }
 
     internal static string BuildReviewPrompt(Diff diff)
@@ -230,15 +231,14 @@ public class CoreStrategy(
             try
             {
                 var response = await _explorer.RunAsync(query, cancellationToken: cancellationToken);
-                var text = response.Messages.LastOrDefault()?.Text ?? "";
+                var result = response.ExtractResult<ExplorationResult>(_logger);
 
-                if (text.TryParseJson<ExplorationResult>() is not null)
+                if (result is not null)
                 {
-                    _logger.LogInformation("Exploration {Index} done, result length: {Length}", idx, text.Length);
-                    return text;
+                    _logger.LogInformation("Exploration {Index} done", idx);
+                    return response.Messages.Last().Text!;
                 }
 
-                _logger.LogWarning("Exploration {Index} returned unstructured output, discarding", idx);
                 Telemetry.ExplorationFailures.Add(1);
                 return $"Exploration failed to produce structured results for: {query}";
             }
