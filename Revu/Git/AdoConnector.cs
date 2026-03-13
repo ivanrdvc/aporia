@@ -67,10 +67,11 @@ public class AdoConnector(
 
         var incremental = options.Value.IncrementalReviews;
         var state = await stateStore.GetAsync(req.RepositoryId, req.PullRequestId);
+        var lastReviewedIteration = state is not null ? int.Parse(state.Cursor) : (int?)null;
 
         // Already reviewed — skip if non-incremental (review once only) or same iteration
-        if (state is not null && (!incremental || state.IterationId >= iterationId))
-            return new Diff([], iterationId);
+        if (lastReviewedIteration is not null && (!incremental || lastReviewedIteration >= iterationId))
+            return new Diff([], iterationId.ToString());
 
         // Paginate to get changed files — compareTo narrows to new changes when incremental
         var allChanges = new List<GitPullRequestChange>();
@@ -85,7 +86,7 @@ public class AdoConnector(
                 iterationId: iterationId,
                 top: top,
                 skip: skip,
-                compareTo: incremental ? state?.IterationId : null);
+                compareTo: incremental ? lastReviewedIteration : null);
 
             allChanges.AddRange(page.ChangeEntries ?? []);
             top = page.NextTop;
@@ -157,7 +158,7 @@ public class AdoConnector(
 
         var files = bag.ToList();
 
-        return new Diff(files, iterationId);
+        return new Diff(files, iterationId.ToString());
     }
 
     public async Task PostReview(ReviewRequest req, Diff diff, ReviewResult result)
@@ -220,9 +221,9 @@ public class AdoConnector(
             await git.CreateThreadAsync(summaryThread, req.Project, req.RepositoryId, req.PullRequestId);
         }
 
-        // Save iteration state after successful posting
-        if (diff.IterationId is not null)
-            await stateStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.IterationId.Value);
+        // Save cursor state after successful posting
+        if (diff.Cursor is not null)
+            await stateStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor);
     }
 
     public async Task<string?> GetFile(ReviewRequest req, string path)

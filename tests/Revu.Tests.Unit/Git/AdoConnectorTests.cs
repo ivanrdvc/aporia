@@ -88,7 +88,7 @@ public class AdoConnectorTests
     }
 
     [Fact]
-    public async Task GetDiff_NullIterationId_ReturnsEmptyDiff()
+    public async Task GetDiff_NullCursor_ReturnsEmptyDiff()
     {
         var git = Substitute.For<GitHttpClient>(new Uri("https://test"), new VssCredentials());
         git.GetPullRequestIterationsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), null, null, default)
@@ -97,14 +97,14 @@ public class AdoConnectorTests
         var diff = await CreateConnector(git, Substitute.For<IPrStateStore>()).GetDiff(Req, ProjectConfig.Default);
 
         Assert.Empty(diff.Files);
-        Assert.Null(diff.IterationId);
+        Assert.Null(diff.Cursor);
     }
 
     [Theory]
     [InlineData(false, 3, 5)] // non-incremental, prior state exists → skip
     [InlineData(true, 5, 5)]  // incremental, same iteration → skip
     [InlineData(true, 6, 5)]  // incremental, state ahead → skip
-    public async Task GetDiff_AlreadyReviewed_ReturnsEmptyWithIterationId(bool incremental, int stateIter, int currentIter)
+    public async Task GetDiff_AlreadyReviewed_ReturnsEmptyWithCursor(bool incremental, int stateIter, int currentIter)
     {
         var git = Substitute.For<GitHttpClient>(new Uri("https://test"), new VssCredentials());
         git.GetPullRequestIterationsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), null, null, default)
@@ -116,13 +116,13 @@ public class AdoConnectorTests
             Id = "x",
             RepositoryId = "repo-id",
             PullRequestId = 42,
-            IterationId = stateIter
+            Cursor = stateIter.ToString()
         });
 
         var diff = await CreateConnector(git, store, incremental).GetDiff(Req, ProjectConfig.Default);
 
         Assert.Empty(diff.Files);
-        Assert.Equal(currentIter, diff.IterationId);
+        Assert.Equal(currentIter.ToString(), diff.Cursor);
     }
 
     [Theory]
@@ -146,7 +146,7 @@ public class AdoConnectorTests
                 Id = "x",
                 RepositoryId = "repo-id",
                 PullRequestId = 42,
-                IterationId = 5
+                Cursor = "5"
             });
 
         git.GetPullRequestIterationChangesAsync(
@@ -156,7 +156,7 @@ public class AdoConnectorTests
 
         var diff = await CreateConnector(git, store, incremental: true).GetDiff(Req, ProjectConfig.Default);
 
-        Assert.Equal(6, diff.IterationId);
+        Assert.Equal("6", diff.Cursor);
     }
 
     private static readonly ReviewRequest Req = new(

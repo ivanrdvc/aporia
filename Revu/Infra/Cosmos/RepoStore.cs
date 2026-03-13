@@ -17,7 +17,6 @@ public interface IRepoStore
 {
     Task<Repository?> GetAsync(string repositoryId);
     Task SaveAsync(Repository repo);
-    Task UpdateLastReviewedAsync(string repositoryId);
 }
 
 public class RepoStore(CosmosDb db) : IRepoStore
@@ -40,11 +39,6 @@ public class RepoStore(CosmosDb db) : IRepoStore
     public async Task SaveAsync(Repository repo) =>
         await _container.UpsertItemAsync(repo, new PartitionKey(repo.Id));
 
-    public async Task UpdateLastReviewedAsync(string repositoryId) =>
-        await _container.PatchItemAsync<Repository>(
-            repositoryId,
-            new PartitionKey(repositoryId),
-            [PatchOperation.Set("/lastReviewedAt", DateTimeOffset.UtcNow)]);
 }
 
 public class Repository
@@ -64,9 +58,6 @@ public class Repository
 
     [JsonProperty("url")]
     public string? Url { get; init; }
-
-    [JsonProperty("lastReviewedAt")]
-    public DateTimeOffset? LastReviewedAt { get; init; }
 
     [JsonProperty("createdAt")]
     public DateTimeOffset CreatedAt { get; init; }

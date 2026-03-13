@@ -34,7 +34,7 @@ public class FixtureCaptureTests(
         var config = await Git.GetConfig(req);
         var diff = await Git.GetDiff(req, config);
 
-        Output.WriteLine($"Diff: {diff.Files.Count} files, iteration {diff.IterationId}");
+        Output.WriteLine($"Diff: {diff.Files.Count} files, cursor {diff.Cursor}");
         foreach (var f in diff.Files)
             Output.WriteLine($"  [{f.Kind}] {f.Path}");
 

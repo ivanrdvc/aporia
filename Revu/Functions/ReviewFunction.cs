@@ -3,29 +3,33 @@ using Microsoft.Extensions.Logging;
 
 using Revu.Git;
 using Revu.Infra.Cosmos;
-using Revu.Infra.Middleware;
+using Revu.Infra.Telemetry;
 using Revu.Review;
 
 namespace Revu.Functions;
 
-public class ReviewFunction(IGitConnector git, Reviewer reviewer, ILogger<ReviewFunction> logger)
+public class ReviewFunction(
+    IGitConnector git,
+    Reviewer reviewer,
+    IReviewStore reviewStore,
+    ILogger<ReviewFunction> logger)
 {
     public const string FunctionName = "ReviewProcessor";
 
     [Function(FunctionName)]
-    public async Task Run([QueueTrigger("review-queue")] ReviewRequest req, FunctionContext context)
+    public async Task Run([QueueTrigger("review-queue")] ReviewRequest req)
     {
         logger.LogInformation("Processing review for PR #{PrId} in {Project}", req.PullRequestId, req.Project);
-        context.Items[ReviewContext.RequestKey] = req;
 
         var config = await git.GetConfig(req);
         var diff = await git.GetDiff(req, config);
-        ReviewContext.SetDiffStats(context, diff);
+
+        Telemetry.RecordReview(req, diff);
 
         if (diff.Files.Count == 0)
         {
             logger.LogInformation("No new changes for PR #{PrId}, skipping review", req.PullRequestId);
-            ReviewContext.Set(context, req, ReviewStatus.Skipped, diff.IterationId, findingsCount: 0);
+            await reviewStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor, ReviewStatus.Skipped, 0, req.ConversationId);
             return;
         }
 
@@ -33,6 +37,6 @@ public class ReviewFunction(IGitConnector git, Reviewer reviewer, ILogger<Review
         await git.PostReview(req, diff, findings);
 
         logger.LogInformation("Posted {Count} findings for PR #{PrId}", findings.Findings.Count, req.PullRequestId);
-        ReviewContext.Set(context, req, ReviewStatus.Completed, diff.IterationId, findings.Findings.Count);
+        await reviewStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor, ReviewStatus.Completed, findings.Findings.Count, req.ConversationId);
     }
 }

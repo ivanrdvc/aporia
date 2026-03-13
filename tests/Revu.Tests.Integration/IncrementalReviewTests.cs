@@ -24,9 +24,9 @@ public class IncrementalReviewTests(
         var config = await Git.GetConfig(TestEvent);
         var diff1 = await Git.GetDiff(TestEvent, config);
 
-        Output.WriteLine($"Run 1 diff: {diff1.Files.Count} files, iteration {diff1.IterationId}");
+        Output.WriteLine($"Run 1 diff: {diff1.Files.Count} files, cursor {diff1.Cursor}");
         Assert.NotEmpty(diff1.Files);
-        Assert.NotNull(diff1.IterationId);
+        Assert.NotNull(diff1.Cursor);
 
         var result1 = await Reviewer.Review(TestEvent, diff1, config);
         await Git.PostReview(TestEvent, diff1, result1);
@@ -42,7 +42,7 @@ public class IncrementalReviewTests(
         // --- Run 2: same PR, no new commits → GetDiff should return empty ---
         var diff2 = await Git.GetDiff(TestEvent, config);
 
-        Output.WriteLine($"Run 2 diff: {diff2.Files.Count} files, iteration {diff2.IterationId}");
+        Output.WriteLine($"Run 2 diff: {diff2.Files.Count} files, cursor {diff2.Cursor}");
         Assert.Empty(diff2.Files);
 
         // Verify no new threads were created
