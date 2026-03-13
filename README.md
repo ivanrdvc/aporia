@@ -1,5 +1,7 @@
 # Revu
 
+[![CI](https://github.com/ivanrdvc/revu/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanrdvc/revu/actions/workflows/ci.yml)
+
 AI code review for pull requests.
 
 ## Features
