@@ -2,6 +2,8 @@ name: CI/CD
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -25,6 +27,7 @@ jobs:
       - run: dotnet test tests/Revu.Tests.Unit/Revu.Tests.Unit.csproj --no-build
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build-and-test
     runs-on: ubuntu-latest
     environment: prod
