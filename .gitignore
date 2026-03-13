@@ -107,4 +107,9 @@ Thumbs.db
 !.vscode/tasks.json
 !.vscode/launch.json
 
+# =========================
+# Infrastructure
+# =========================
+infra/*.json
+
 ui/.tanstack

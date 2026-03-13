@@ -6,9 +6,12 @@ public class AdoOptions
 {
     public const string SectionName = "AzureDevOps";
 
-    [Required]
-    public string Organization { get; init; } = string.Empty;
+    [Required, MinLength(1)]
+    public Dictionary<string, AdoOrgConfig> Organizations { get; init; } = [];
+}
 
-    [Required]
-    public string PersonalAccessToken { get; init; } = string.Empty;
+public class AdoOrgConfig
+{
+    [Required] public string Organization { get; init; } = string.Empty;
+    [Required] public string PersonalAccessToken { get; init; } = string.Empty;
 }

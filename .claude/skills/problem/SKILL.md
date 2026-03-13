@@ -1,6 +1,7 @@
 ---
 name: problem
 description: "Capture a problem from the current conversation to revisit later: /problem"
+user-invocable: true
 disable-model-invocation: true
 ---
 

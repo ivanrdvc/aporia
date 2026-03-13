@@ -30,7 +30,6 @@ public class AppFixture : IAsyncLifetime
             .AddEnvironmentVariables();
 
         // Options
-        builder.Services.Configure<AdoOptions>(builder.Configuration.GetSection(AdoOptions.SectionName));
         builder.Services.Configure<AIOptions>(builder.Configuration.GetSection(AIOptions.SectionName));
         builder.Services.Configure<CosmosOptions>(builder.Configuration.GetSection(CosmosOptions.SectionName));
         builder.Services.Configure<RevuOptions>(builder.Configuration.GetSection(RevuOptions.SectionName));

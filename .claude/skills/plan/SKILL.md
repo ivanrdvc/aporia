@@ -1,6 +1,7 @@
 ---
 name: plan
 description: "Capture a plan from the current conversation to implement later: /plan"
+user-invocable: true
 disable-model-invocation: true
 ---
 

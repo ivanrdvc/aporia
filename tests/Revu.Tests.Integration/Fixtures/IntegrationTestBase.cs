@@ -24,7 +24,7 @@ public abstract class IntegrationTestBase(
     protected ITestOutputHelper Output => output;
     protected string SessionDirectory => fixture.SessionDirectory;
     protected IGitConnector Git => Services.GetRequiredService<IGitConnector>();
-    protected GitHttpClient GitClient => Services.GetRequiredService<GitHttpClient>();
+    protected GitHttpClient GitClient => Services.GetRequiredService<IReadOnlyDictionary<string, GitHttpClient>>().Values.First();
     protected Reviewer Reviewer => Services.GetRequiredService<Reviewer>();
 
     /// <summary>Reset iteration state so GetDiff returns a full diff.</summary>
