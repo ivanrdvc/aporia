@@ -13,7 +13,7 @@ public record ReviewRequest(
     int PullRequestId,
     string SourceBranch,
     string TargetBranch,
-    string? Organization = null
+    string Organization = ""
 )
 {
     public string ConversationId => $"pr-{RepositoryId}-{PullRequestId}";
