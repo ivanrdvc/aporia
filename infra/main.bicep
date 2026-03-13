@@ -1,0 +1,122 @@
+@description('Azure region for all resources')
+param location string = resourceGroup().location
+
+@description('Base name for all resources')
+param appName string = 'revu'
+
+@secure()
+@description('Azure DevOps Personal Access Token')
+param adoPat string
+
+@description('Azure DevOps organization name')
+param adoOrg string
+
+@secure()
+@description('OpenAI API key')
+param aiOpenAiKey string
+
+@secure()
+@description('Anthropic API key')
+param aiAnthropicKey string
+
+// ---------- Naming ----------
+
+var suffix = uniqueString(resourceGroup().id)
+var storageAccountName = toLower('st${appName}${suffix}')
+var appInsightsName = 'appi-${appName}'
+var logAnalyticsName = 'log-${appName}'
+var planName = 'asp-${appName}'
+var functionAppName = 'func-${appName}'
+var cosmosAccountName = 'cosmos-${appName}'
+
+// ---------- Storage Account ----------
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: storageAccountName
+  location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }
+}
+
+// ---------- Log Analytics + App Insights ----------
+
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: logAnalyticsName
+  location: location
+  properties: {
+    sku: { name: 'PerGB2018' }
+    retentionInDays: 30
+  }
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: appInsightsName
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalytics.id
+  }
+}
+
+// ---------- Cosmos DB (Serverless) ----------
+
+resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
+  name: cosmosAccountName
+  location: location
+  properties: {
+    databaseAccountOfferType: 'Standard'
+    capabilities: [{ name: 'EnableServerless' }]
+    locations: [{ locationName: location, failoverPriority: 0 }]
+    consistencyPolicy: { defaultConsistencyLevel: 'Session' }
+  }
+}
+
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-05-15' = {
+  parent: cosmosAccount
+  name: 'revu'
+  properties: {
+    resource: { id: 'revu' }
+  }
+}
+
+// ---------- Flex Consumption Plan ----------
+
+resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
+  name: planName
+  location: location
+  kind: 'linux'
+  sku: { tier: 'FlexConsumption', name: 'FC1' }
+  properties: { reserved: true }
+}
+
+// ---------- Function App ----------
+
+resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
+  name: functionAppName
+  location: location
+  kind: 'functionapp,linux'
+  properties: {
+    serverFarmId: plan.id
+    siteConfig: {
+      appSettings: [
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net' }
+        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
+        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
+        { name: 'Cosmos__ConnectionString', value: cosmosAccount.listConnectionStrings().connectionStrings[0].connectionString }
+        { name: 'AzureDevOps__Organization', value: adoOrg }
+        { name: 'AzureDevOps__PersonalAccessToken', value: adoPat }
+        { name: 'Ai__Models__default', value: 'openai/gpt-5-mini' }
+        { name: 'Ai__Models__reasoning', value: 'openai/gpt-5-mini' }
+        { name: 'Ai__OpenAI__ApiKey', value: aiOpenAiKey }
+        { name: 'Ai__Anthropic__ApiKey', value: aiAnthropicKey }
+        { name: 'Revu__IncrementalReviews', value: 'true' }
+      ]
+    }
+  }
+}
+
+// ---------- Outputs ----------
+
+output functionAppName string = functionApp.name
+output functionAppDefaultHostName string = functionApp.properties.defaultHostName
