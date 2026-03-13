@@ -1,6 +1,6 @@
 # Revu
 
-[![CI](https://github.com/ivanrdvc/revu/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanrdvc/revu/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/ivanrdvc/revu/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ivanrdvc/revu/actions/workflows/ci-cd.yml)
 
 AI code review for pull requests.
 
