@@ -59,6 +59,9 @@ public class Repository
     [JsonProperty("url")]
     public string? Url { get; init; }
 
+    [JsonProperty("organization")]
+    public string? Organization { get; init; }
+
     [JsonProperty("createdAt")]
     public DateTimeOffset CreatedAt { get; init; }
 }

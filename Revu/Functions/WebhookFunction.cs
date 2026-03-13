@@ -31,8 +31,10 @@ public class WebhookFunction(IRepoStore repoStore)
 
         var repo = await repoStore.GetAsync(request.RepositoryId);
 
-        if (repo is not { Enabled: true })
+        if (repo is not { Enabled: true, Organization: not null })
             return new WebhookResponse();
+
+        request = request with { Organization = repo.Organization };
 
         return new WebhookResponse { QueueMessage = JsonSerializer.Serialize(request) };
     }

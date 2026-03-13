@@ -40,6 +40,7 @@ public class AdminFunction(IRepoStore repoStore)
             Enabled = true,
             Name = body.Name,
             Url = body.Url,
+            Organization = body.Organization,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -48,5 +49,5 @@ public class AdminFunction(IRepoStore repoStore)
         return new OkObjectResult(repo);
     }
 
-    public record RegisterRepoRequest(string? RepositoryId, string? Provider, string? Name = null, string? Url = null);
+    public record RegisterRepoRequest(string? RepositoryId, string? Provider, string? Name = null, string? Url = null, string? Organization = null);
 }

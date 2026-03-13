@@ -58,22 +58,35 @@ public static class ServiceCollectionExtensions
     {
         services.AddOptions<AdoOptions>().BindConfiguration(AdoOptions.SectionName).ValidateDataAnnotations().ValidateOnStart();
 
-        services.AddSingleton<GitHttpClient>(sp =>
+        services.AddSingleton<IReadOnlyDictionary<string, GitHttpClient>>(sp =>
         {
-            var options = sp.GetRequiredService<IOptions<AdoOptions>>().Value;
-            var connection = new VssConnection(
-                new Uri($"https://dev.azure.com/{options.Organization}"),
-                new VssBasicCredential(string.Empty, options.PersonalAccessToken));
-            return connection.GetClient<GitHttpClient>();
+            var orgs = sp.GetRequiredService<IOptions<AdoOptions>>().Value.Organizations;
+            return orgs.ToDictionary(
+                kvp => kvp.Key,
+                kvp =>
+                {
+                    var connection = new VssConnection(
+                        new Uri($"https://dev.azure.com/{kvp.Value.Organization}"),
+                        new VssBasicCredential(string.Empty, kvp.Value.PersonalAccessToken));
+                    return connection.GetClient<GitHttpClient>();
+                });
         });
 
-        services.AddHttpClient("AdoSearch", (sp, client) =>
+        services.AddSingleton<IReadOnlyDictionary<string, HttpClient>>(sp =>
         {
-            var options = sp.GetRequiredService<IOptions<AdoOptions>>().Value;
-            client.BaseAddress = new Uri($"https://almsearch.dev.azure.com/{options.Organization}/");
-            var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{options.PersonalAccessToken}"));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", creds);
-        })
-        .AddStandardResilienceHandler();
+            var orgs = sp.GetRequiredService<IOptions<AdoOptions>>().Value.Organizations;
+            return orgs.ToDictionary(
+                kvp => kvp.Key,
+                kvp =>
+                {
+                    var client = new HttpClient
+                    {
+                        BaseAddress = new Uri($"https://almsearch.dev.azure.com/{kvp.Value.Organization}/")
+                    };
+                    var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{kvp.Value.PersonalAccessToken}"));
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", creds);
+                    return client;
+                });
+        });
     }
 }

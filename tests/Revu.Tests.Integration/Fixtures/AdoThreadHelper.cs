@@ -19,7 +19,7 @@ internal static class AdoThreadHelper
         _options = options.Value;
 
     public static ReviewRequest PrRequest(int pullRequestId, string sourceBranch, string targetBranch = "refs/heads/main") =>
-        new(_options.Provider, _options.Project, _options.RepositoryId, _options.RepositoryName, pullRequestId, sourceBranch, targetBranch);
+        new(_options.Provider, _options.Project, _options.RepositoryId, _options.RepositoryName, pullRequestId, sourceBranch, targetBranch, _options.Organization);
 
     /// <summary>
     /// Delete all comments on a PR — used for test cleanup.
@@ -82,4 +82,6 @@ public class TestRepoOptions
     public string RepositoryName { get; init; } = string.Empty;
 
     public GitProvider Provider { get; init; } = GitProvider.Ado;
+
+    public string? Organization { get; init; }
 }

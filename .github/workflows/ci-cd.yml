@@ -56,8 +56,6 @@ jobs:
           resource-group-name: rg-revu-prod
           template-file: infra/main.bicep
           parameters: >
-            adoPat=${{ secrets.ADO_PAT }}
-            adoOrg=${{ secrets.ADO_ORG }}
             aiOpenAiKey=${{ secrets.AI_OPENAI_KEY }}
             aiAnthropicKey=${{ secrets.AI_ANTHROPIC_KEY }}
 

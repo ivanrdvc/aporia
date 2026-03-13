@@ -16,10 +16,10 @@ using Revu.Infra.Cosmos;
 namespace Revu.Git;
 
 public class AdoConnector(
-    GitHttpClient git, 
-    IPrStateStore stateStore, 
-    IHttpClientFactory httpFactory, 
-    IOptions<RevuOptions> options, 
+    IReadOnlyDictionary<string, GitHttpClient> gitClients,
+    IReadOnlyDictionary<string, HttpClient> searchClients,
+    IPrStateStore stateStore,
+    IOptions<RevuOptions> options,
     ILogger<AdoConnector> logger) : IGitConnector
 {
     private const string RevuVersion = "revu:version";
@@ -28,6 +28,7 @@ public class AdoConnector(
 
     public async Task<ProjectConfig> GetConfig(ReviewRequest req)
     {
+        var git = gitClients[req.Organization];
         try
         {
             var item = await git.GetItemAsync(
@@ -53,6 +54,8 @@ public class AdoConnector(
 
     public async Task<Diff> GetDiff(ReviewRequest req, ProjectConfig config)
     {
+        var git = gitClients[req.Organization];
+
         var iterations = await git.GetPullRequestIterationsAsync(
             project: req.Project,
             repositoryId: req.RepositoryId,
@@ -163,6 +166,8 @@ public class AdoConnector(
 
     public async Task PostReview(ReviewRequest req, Diff diff, ReviewResult result)
     {
+        var git = gitClients[req.Organization];
+
         // Fetch existing Revu threads for dedup
         var existingThreads = await git.GetThreadsAsync(
             project: req.Project,
@@ -173,9 +178,8 @@ public class AdoConnector(
             .Where(t => !t.IsDeleted)
             .Where(t => t.Properties?.GetValue<string>(RevuVersion, null!) is not null)
             .Where(t => !string.IsNullOrEmpty(t.Properties!.GetValue<string>(RevuFingerprint, "")))
-            .ToDictionary(
-                t => t.Properties!.GetValue<string>(RevuFingerprint, ""),
-                t => t);
+            .GroupBy(t => t.Properties!.GetValue<string>(RevuFingerprint, ""))
+            .ToDictionary(g => g.Key, g => g.First());
 
         // Post new findings, skipping those already posted (fingerprint match)
         foreach (var finding in result.Findings)
@@ -230,6 +234,7 @@ public class AdoConnector(
     {
         try
         {
+            var git = gitClients[req.Organization];
             var item = await git.GetItemAsync(
                 project: req.Project,
                 repositoryId: req.RepositoryId,
@@ -251,6 +256,7 @@ public class AdoConnector(
 
     public async Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path)
     {
+        var git = gitClients[req.Organization];
         var items = await git.GetItemsAsync(
             project: req.Project,
             repositoryId: req.RepositoryId,
@@ -267,7 +273,6 @@ public class AdoConnector(
 
     public async Task<IReadOnlyList<SearchResult>> SearchCode(ReviewRequest req, string query)
     {
-        var client = httpFactory.CreateClient("AdoSearch");
         var body = new Dictionary<string, object>
         {
             ["searchText"] = query,
@@ -280,7 +285,8 @@ public class AdoConnector(
             }
         };
 
-        var response = await client.PostAsJsonAsync(
+        var search = searchClients[req.Organization];
+        var response = await search.PostAsJsonAsync(
             $"{req.Project}/_apis/search/codesearchresults?api-version=7.1", body);
 
         if (!response.IsSuccessStatusCode)
@@ -299,6 +305,7 @@ public class AdoConnector(
 
     public async Task<PrContext> GetPrContext(ReviewRequest req)
     {
+        var git = gitClients[req.Organization];
         try
         {
             var prTask = git.GetPullRequestByIdAsync(req.PullRequestId, req.Project);
@@ -328,7 +335,7 @@ public class AdoConnector(
     {
         try
         {
-            var stream = await git.GetItemContentAsync(
+            var stream = await gitClients[req.Organization].GetItemContentAsync(
                 project: req.Project,
                 repositoryId: req.RepositoryId,
                 path: path,

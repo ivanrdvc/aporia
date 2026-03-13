@@ -5,13 +5,6 @@ param location string = resourceGroup().location
 param appName string = 'revu'
 
 @secure()
-@description('Azure DevOps Personal Access Token')
-param adoPat string
-
-@description('Azure DevOps organization name')
-param adoOrg string
-
-@secure()
 @description('OpenAI API key')
 param aiOpenAiKey string
 
@@ -28,6 +21,7 @@ var logAnalyticsName = 'log-${appName}'
 var planName = 'asp-${appName}'
 var functionAppName = 'func-${appName}'
 var cosmosAccountName = 'cosmos-${appName}'
+var deploymentContainerName = 'app-package'
 
 // ---------- Storage Account ----------
 
@@ -36,6 +30,16 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   location: location
   kind: 'StorageV2'
   sku: { name: 'Standard_LRS' }
+}
+
+resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobServices
+  name: deploymentContainerName
 }
 
 // ---------- Log Analytics + App Insights ----------
@@ -91,6 +95,12 @@ resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
 }
 
 // ---------- Function App ----------
+// Git provider orgs (ADO, GitHub) are runtime config — add via:
+//   az functionapp config appsettings set -n func-revu -g rg-revu-prod \
+//     --settings "AzureDevOps__Organizations__<org>__Organization=<org>" \
+//                "AzureDevOps__Organizations__<org>__PersonalAccessToken=<pat>"
+
+var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
 
 resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: functionAppName
@@ -98,14 +108,31 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   kind: 'functionapp,linux'
   properties: {
     serverFarmId: plan.id
+    functionAppConfig: {
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${storageAccount.properties.primaryEndpoints.blob}${deploymentContainerName}'
+          authentication: {
+            type: 'StorageAccountConnectionString'
+            storageAccountConnectionStringName: 'AzureWebJobsStorage'
+          }
+        }
+      }
+      scaleAndConcurrency: {
+        maximumInstanceCount: 10
+        instanceMemoryMB: 2048
+      }
+      runtime: {
+        name: 'dotnet-isolated'
+        version: '10.0'
+      }
+    }
     siteConfig: {
       appSettings: [
-        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net' }
-        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
+        { name: 'AzureWebJobsStorage', value: storageConnectionString }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
         { name: 'Cosmos__ConnectionString', value: cosmosAccount.listConnectionStrings().connectionStrings[0].connectionString }
-        { name: 'AzureDevOps__Organization', value: adoOrg }
-        { name: 'AzureDevOps__PersonalAccessToken', value: adoPat }
         { name: 'Ai__Models__default', value: 'openai/gpt-5-mini' }
         { name: 'Ai__Models__reasoning', value: 'openai/gpt-5-mini' }
         { name: 'Ai__OpenAI__ApiKey', value: aiOpenAiKey }
