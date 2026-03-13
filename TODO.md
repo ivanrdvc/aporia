@@ -11,6 +11,7 @@
 - Build repo map (AST structural index) for compact codebase awareness
 - Externalize prompts (load from blob/config instead of compiled `Prompts.cs`)
 - Switch auth from PAT-only to `DefaultAzureCredential` with PAT fallback
+- Semantic search — vector embeddings for similar-pattern detection, consistency checks, related tests
 - Learnings from feedback — inject past review learnings into reviewer instructions
 - Work item integration — fetch linked work items as additional review context
 - Local repo cloning support for tool-based reviews
