@@ -27,21 +27,21 @@ deduplicates and saves state.
 
 ### Iteration tracking — `GetDiff`
 
-`AdoConnector.GetDiff` queries `IPrStateStore` for the last reviewed iteration ID:
+`AdoConnector.GetDiff` queries `IPrStateStore` for the last reviewed cursor:
 
 - **No state (first review)**: full PR diff. `compareTo` is `null` → diff vs target branch.
-- **State exists, same iteration**: returns empty `Diff` (0 files). `ReviewFunction` skips the LLM.
-- **State exists, new iteration**: passes `compareTo: state.IterationId` to
+- **State exists, same cursor**: returns empty `Diff` (0 files). `ReviewFunction` skips the LLM.
+- **State exists, new cursor**: passes `compareTo` to
   `GetPullRequestIterationChangesAsync`. Returns only files changed since last review.
 
 The diff content for each file is still computed against the target branch (full accumulated change).
 We narrow the *file set*, not the *diff depth*. The reviewer sees complete context for the files it
 reviews.
 
-`Diff` carries the iteration ID:
+`Diff` carries a provider-agnostic cursor (ADO iteration ID, GitHub commit SHA, etc.):
 
 ```csharp
-public record Diff(List<FileChange> Files, int? IterationId = null);
+public record Diff(List<FileChange> Files, string? Cursor = null);
 ```
 
 ### Comment dedup — `PostReview`
@@ -59,11 +59,10 @@ New threads are stamped with:
 
 ### State persistence — `PostReview`
 
-After posting, `PostReview` saves the iteration ID to `IReviewStateStore`:
+After posting, `PostReview` saves the cursor to `IPrStateStore`:
 
 ```csharp
-await stateStore.SaveAsync(req.RepositoryId, req.PullRequestId,
-    new ReviewState(diff.IterationId.Value));
+await stateStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor);
 ```
 
 ### Empty diff = skip
@@ -84,7 +83,7 @@ this naturally (messages expire after 180 days), and most PRs don't live that lo
 
 ## Persistence
 
-`IPrStateStore` persists the last reviewed iteration ID per PR in Cosmos DB.
+`IPrStateStore` persists the last reviewed cursor per PR in Cosmos DB.
 Partition key: `/repositoryId`. Document ID: `{repositoryId}-pr-{pullRequestId}`.
 
 Configuration:

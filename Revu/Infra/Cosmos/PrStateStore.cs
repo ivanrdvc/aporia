@@ -7,13 +7,14 @@ using Newtonsoft.Json;
 namespace Revu.Infra.Cosmos;
 
 /// <summary>
-/// Tracks per-PR pipeline state (last reviewed iteration) so incremental reviews
-/// only examine new changes. Documents have a 90-day TTL.
+/// Tracks per-PR pipeline state (cursor) so incremental reviews only examine new
+/// changes. Each provider defines its own cursor format (e.g. ADO iteration ID,
+/// GitHub commit SHA). Documents have a 90-day TTL.
 /// </summary>
 public interface IPrStateStore
 {
     Task<PrState?> GetAsync(string repositoryId, int pullRequestId);
-    Task SaveAsync(string repositoryId, int pullRequestId, int iterationId);
+    Task SaveAsync(string repositoryId, int pullRequestId, string cursor);
 }
 
 public class PrStateStore(CosmosDb db) : IPrStateStore
@@ -34,14 +35,14 @@ public class PrStateStore(CosmosDb db) : IPrStateStore
         }
     }
 
-    public async Task SaveAsync(string repositoryId, int pullRequestId, int iterationId)
+    public async Task SaveAsync(string repositoryId, int pullRequestId, string cursor)
     {
         var state = new PrState
         {
             Id = ToId(repositoryId, pullRequestId),
             RepositoryId = repositoryId,
             PullRequestId = pullRequestId,
-            IterationId = iterationId
+            Cursor = cursor
         };
 
         await _container.UpsertItemAsync(state, new PartitionKey(repositoryId));
@@ -61,6 +62,6 @@ public class PrState
     [JsonProperty("pullRequestId")]
     public int PullRequestId { get; init; }
 
-    [JsonProperty("iterationId")]
-    public int IterationId { get; init; }
+    [JsonProperty("cursor")]
+    public string Cursor { get; init; } = null!;
 }

@@ -19,7 +19,7 @@ public abstract class IntegrationTestBase(
     ITestOutputHelper output) : IDisposable
 {
     private readonly IServiceScope _scope = fixture.Services.CreateScope();
-    private IServiceProvider Services => _scope.ServiceProvider;
+    protected IServiceProvider Services => _scope.ServiceProvider;
 
     protected ITestOutputHelper Output => output;
     protected string SessionDirectory => fixture.SessionDirectory;
@@ -31,7 +31,7 @@ public abstract class IntegrationTestBase(
     protected async Task ResetReviewState(ReviewRequest req)
     {
         await Services.GetRequiredService<IPrStateStore>()
-            .SaveAsync(req.RepositoryId, req.PullRequestId, 0);
+            .SaveAsync(req.RepositoryId, req.PullRequestId, "0");
     }
 
     /// <summary>Fetch and print all visible PR threads to test output.</summary>

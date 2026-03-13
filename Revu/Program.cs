@@ -7,14 +7,12 @@ using Microsoft.Extensions.Logging;
 using Revu.Git;
 using Revu.Infra;
 using Revu.Infra.AI;
-using Revu.Infra.Middleware;
 using Revu.Infra.Telemetry;
 using Revu.Review;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.ConfigureFunctionsWebApplication();
-builder.UseMiddleware<ReviewTrackingMiddleware>();
 
 builder.Services.AddOptions<RevuOptions>().BindConfiguration(RevuOptions.SectionName);
 

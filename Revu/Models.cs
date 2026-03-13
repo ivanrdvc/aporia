@@ -18,7 +18,7 @@ public record ReviewRequest(
     public string ConversationId => $"pr-{RepositoryId}-{PullRequestId}";
 }
 
-public record Diff(List<FileChange> Files, int? IterationId = null);
+public record Diff(List<FileChange> Files, string? Cursor = null);
 
 public record PrContext(string Title, string? Description, IReadOnlyList<string> CommitMessages);
 

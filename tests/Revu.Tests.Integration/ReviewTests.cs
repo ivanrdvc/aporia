@@ -15,7 +15,7 @@ public class ReviewTests(
 
     private ReviewRequest GetTestEvent()
     {
-        var config = fixture.Services.GetRequiredService<IConfiguration>();
+        var config = Services.GetRequiredService<IConfiguration>();
         var prId = config.GetValue<int>("TestTarget:PrId");
         var branch = config.GetValue<string>("TestTarget:Branch")!;
         return AdoThreadHelper.PrRequest(prId, branch);
