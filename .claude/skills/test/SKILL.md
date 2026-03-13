@@ -1,6 +1,7 @@
 ---
 name: test
 description: "Run Revu tests: /test, /test session, /test run, /test cleanup"
+user-invocable: true
 disable-model-invocation: true
 argument-hint: "[session | run | cleanup]"
 ---
