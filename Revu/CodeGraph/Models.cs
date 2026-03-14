@@ -6,8 +6,6 @@ namespace Revu.CodeGraph;
 
 public record IndexRequest(string RepositoryId, string Project, GitProvider Provider, string Branch);
 
-public enum CodeGraphQueryKind { Callers, Implementations, Dependents, Outline, Hierarchy }
-
 public class FileIndex
 {
     [JsonProperty("id")]
@@ -18,9 +16,6 @@ public class FileIndex
 
     [JsonProperty("branch")]
     public string Branch { get; init; } = null!;
-
-    [JsonProperty("commitSha")]
-    public string CommitSha { get; init; } = null!;
 
     [JsonProperty("language")]
     public string Language { get; init; } = null!;

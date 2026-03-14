@@ -9,6 +9,7 @@
 ## Features
 
 - [Incremental Reviews](features/incremental-reviews.md) — iteration tracking, comment dedup, Cosmos persistence
+- [Code Graph](features/code-graph.md) — tree-sitter structural index, callers/implementations/dependents queries, reviewer tool
 
 ## Plans
 

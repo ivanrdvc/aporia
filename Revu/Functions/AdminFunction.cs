@@ -46,15 +46,18 @@ public class AdminFunction(IRepoStore repoStore)
             CreatedAt = DateTimeOffset.UtcNow
         };
 
+        var existing = await repoStore.GetAsync(body.RepositoryId);
         await repoStore.SaveAsync(repo);
 
-        var indexRequest = new IndexRequest(
-            repo.Id, body.Project ?? "", provider, body.DefaultBranch ?? "refs/heads/main");
+        var branch = body.DefaultBranch ?? "refs/heads/main";
+        var needsIndex = existing is null || existing.Provider != provider;
 
         return new RegisterRepoResponse
         {
             Result = new OkObjectResult(repo),
-            IndexMessage = JsonSerializer.Serialize(indexRequest)
+            IndexMessage = needsIndex
+                ? JsonSerializer.Serialize(new IndexRequest(repo.Id, body.Project ?? "", provider, branch))
+                : null
         };
     }
 

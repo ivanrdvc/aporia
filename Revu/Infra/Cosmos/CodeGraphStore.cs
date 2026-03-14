@@ -9,7 +9,7 @@ namespace Revu.Infra.Cosmos;
 public interface ICodeGraphStore
 {
     Task UpsertFileAsync(FileIndex file);
-    Task DeleteOrphansAsync(string repoId, HashSet<string> indexedPaths);
+    Task DeleteOrphansAsync(string repoId, HashSet<string> indexedPaths, CancellationToken ct = default);
     Task<List<FileIndex>> GetAllAsync(string repoId);
 }
 
@@ -20,7 +20,7 @@ public class CodeGraphStore(CosmosDb db) : ICodeGraphStore
     public async Task UpsertFileAsync(FileIndex file) =>
         await _container.UpsertItemAsync(file, new PartitionKey(file.RepoId));
 
-    public async Task DeleteOrphansAsync(string repoId, HashSet<string> indexedPaths)
+    public async Task DeleteOrphansAsync(string repoId, HashSet<string> indexedPaths, CancellationToken ct = default)
     {
         var query = _container.GetItemQueryIterator<dynamic>(
             new QueryDefinition("SELECT c.id FROM c WHERE c.repoId = @repoId")
@@ -40,7 +40,7 @@ public class CodeGraphStore(CosmosDb db) : ICodeGraphStore
         }
 
         var pk = new PartitionKey(repoId);
-        await Parallel.ForEachAsync(orphanIds, new ParallelOptions { MaxDegreeOfParallelism = 10 },
+        await Parallel.ForEachAsync(orphanIds, new ParallelOptions { MaxDegreeOfParallelism = 10, CancellationToken = ct },
             async (id, _) => await _container.DeleteItemAsync<FileIndex>(id, pk));
     }
 

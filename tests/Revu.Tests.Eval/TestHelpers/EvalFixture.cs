@@ -123,7 +123,7 @@ public class EvalFixture : IAsyncLifetime
     private sealed class NullCodeGraphStore : ICodeGraphStore
     {
         public Task UpsertFileAsync(FileIndex file) => Task.CompletedTask;
-        public Task DeleteOrphansAsync(string repoId, HashSet<string> indexedPaths) => Task.CompletedTask;
+        public Task DeleteOrphansAsync(string repoId, HashSet<string> indexedPaths, CancellationToken ct = default) => Task.CompletedTask;
         public Task<List<FileIndex>> GetAllAsync(string repoId) => Task.FromResult(new List<FileIndex>());
     }
 }

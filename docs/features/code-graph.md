@@ -27,10 +27,11 @@ before fetching full source.
 
 ## How it works
 
-1. **Indexing**: on repo registration, `AdminFunction` enqueues an `IndexRequest`. The
-   queue-triggered `IndexFunction` calls `CodeGraphIndexer`, which fetches all files via the
-   git provider, parses them with tree-sitter, resolves cross-file references, and upserts
-   `FileIndex` documents to Cosmos. SHA256 content hashing skips unchanged files on re-index.
+1. **Indexing**: on first repo registration (or provider change), `AdminFunction` enqueues an
+   `IndexRequest`. Re-registering an existing repo skips indexing. The queue-triggered
+   `IndexFunction` calls `CodeGraphIndexer`, which fetches all files via the git provider,
+   parses them with tree-sitter, resolves cross-file references, and upserts `FileIndex`
+   documents to Cosmos. SHA256 content hashing skips unchanged files on re-index.
 
 2. **Querying**: at review start, `CoreStrategy` loads all `FileIndex` docs for the repo into
    memory (`GetAllAsync`). All queries are in-memory LINQ lookups — zero per-query Cosmos calls.

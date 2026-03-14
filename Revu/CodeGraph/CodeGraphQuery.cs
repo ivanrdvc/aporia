@@ -4,6 +4,7 @@ namespace Revu.CodeGraph;
 
 public class CodeGraphQuery(List<FileIndex> graph)
 {
+    private const int MaxResults = 50;
     public string Execute(string queryKind, string target, string? filePath = null)
     {
         var sb = new StringBuilder();
@@ -38,8 +39,10 @@ public class CodeGraphQuery(List<FileIndex> graph)
     {
         sb.AppendLine($"Callers of {target}{(filePath is not null ? $" ({filePath})" : "")}:");
 
+        var count = 0;
         foreach (var file in graph)
         {
+            if (count >= MaxResults) break;
             var path = file.Id.Replace('|', '/');
             foreach (var reference in file.References)
             {
@@ -72,6 +75,12 @@ public class CodeGraphQuery(List<FileIndex> graph)
                 sb.AppendLine($"  {location}");
                 if (enclosing is not null)
                     sb.AppendLine($"    {enclosing.Signature}");
+
+                if (++count >= MaxResults)
+                {
+                    sb.AppendLine($"  ... truncated at {MaxResults} results");
+                    break;
+                }
             }
         }
     }
@@ -80,8 +89,10 @@ public class CodeGraphQuery(List<FileIndex> graph)
     {
         sb.AppendLine($"Implementations of {target}:");
 
+        var count = 0;
         foreach (var file in graph)
         {
+            if (count >= MaxResults) break;
             var path = file.Id.Replace('|', '/');
             foreach (var reference in file.References)
             {
@@ -103,6 +114,12 @@ public class CodeGraphQuery(List<FileIndex> graph)
                 else
                 {
                     sb.AppendLine($"  {path}:{reference.Line}");
+                }
+
+                if (++count >= MaxResults)
+                {
+                    sb.AppendLine($"  ... truncated at {MaxResults} results");
+                    break;
                 }
             }
         }
@@ -127,6 +144,7 @@ public class CodeGraphQuery(List<FileIndex> graph)
 
         sb.AppendLine($"Files depending on {targetPath}:");
 
+        var count = 0;
         foreach (var file in graph)
         {
             if (file.Id == targetFile.Id) continue;
@@ -153,6 +171,12 @@ public class CodeGraphQuery(List<FileIndex> graph)
             }));
 
             sb.AppendLine($"  {path,-40} — {summary}");
+
+            if (++count >= MaxResults)
+            {
+                sb.AppendLine($"  ... truncated at {MaxResults} results");
+                break;
+            }
         }
     }
 

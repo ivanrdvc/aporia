@@ -74,7 +74,6 @@ public class CodeGraphIndexer(
                         Id = docId,
                         RepoId = req.RepositoryId,
                         Branch = req.Branch,
-                        CommitSha = "",
                         Language = parser.Language,
                         ContentHash = hash,
                         Symbols = symbols,
@@ -95,7 +94,7 @@ public class CodeGraphIndexer(
             async (file, _) => await store.UpsertFileAsync(file));
 
         var indexedPaths = new HashSet<string>(indexedFiles.Select(f => f.Id));
-        await store.DeleteOrphansAsync(req.RepositoryId, indexedPaths);
+        await store.DeleteOrphansAsync(req.RepositoryId, indexedPaths, ct);
 
         logger.LogInformation("Indexed {Count} files for {RepoId}", indexedFiles.Count, req.RepositoryId);
     }
