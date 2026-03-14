@@ -5,9 +5,11 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra;
 using Revu.Infra.AI;
+using Revu.Infra.Cosmos;
 using Revu.Infra.Middleware;
 using Revu.Infra.Telemetry;
 
@@ -17,6 +19,7 @@ public class CoreStrategy(
     [FromKeyedServices(ModelKey.Reasoning)] IChatClient reviewerClient,
     [FromKeyedServices(ModelKey.Default)] IChatClient explorerClient,
     IGitConnector git,
+    ICodeGraphStore codeGraph,
     ChatHistoryProvider sessionProvider,
     FileAgentSkillsProvider skillsProvider,
     PrContextProvider prContextProvider,
@@ -30,7 +33,9 @@ public class CoreStrategy(
     public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CancellationToken ct = default)
     {
         var prompt = BuildReviewPrompt(diff);
-        var tools = new ReviewerTools(git, req, diff);
+        var graphDocs = await codeGraph.GetAllAsync(req.RepositoryId);
+        var query = graphDocs.Count > 0 ? new CodeGraphQuery(graphDocs) : null;
+        var tools = new ReviewerTools(git, req, diff, query);
         var exploreTool = GuardedExploreTool.Create(explorerClient, tools, sessionProvider, logger);
 
         var reviewer = reviewerClient
@@ -51,6 +56,7 @@ public class CoreStrategy(
                         AIFunctionFactory.Create(tools.FetchFile),
                         AIFunctionFactory.Create(tools.ListDirectory),
                         AIFunctionFactory.Create(tools.SearchCode),
+                        AIFunctionFactory.Create(tools.QueryCodeGraph),
                         exploreTool,
                     ],
                     AllowMultipleToolCalls = true,
@@ -199,6 +205,7 @@ public class CoreStrategy(
                             AIFunctionFactory.Create(tools.FetchFile),
                             AIFunctionFactory.Create(tools.ListDirectory),
                             AIFunctionFactory.Create(tools.SearchCode),
+                            AIFunctionFactory.Create(tools.QueryCodeGraph),
                         ],
                         ResponseFormat = ChatResponseFormat.ForJsonSchema<ExplorationResult>(),
                         AdditionalProperties = new() { ["strict"] = true }

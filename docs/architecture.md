@@ -63,6 +63,7 @@ explorers only for cross-file analytical work, then produces a final review.
 │                              │
 │  Tools: FetchFile, SearchCode│
 │         ListDirectory,       │
+│         QueryCodeGraph,      │
 │         Explore              │
 │                              │
 │  1. Analyze visible code     │
@@ -103,6 +104,10 @@ result is an error message. Raw text never flows back to the reviewer.
 - **SearchCode validation**: queries containing code characters (`;{}=<>!&|,`) or more than two
   words are rejected with feedback. A wildcard fallback (`query*`) fires when exact search returns
   nothing, since ADO treats PascalCase identifiers as atomic tokens.
+- **Code graph**: at review start, all `FileIndex` documents for the repo are loaded from Cosmos
+  into memory. The `QueryCodeGraph` tool runs callers, implementations, dependents, outline, and
+  hierarchy queries as in-memory LINQ lookups — zero per-query Cosmos calls. Background-indexed
+  via tree-sitter when a repo is registered. Graceful degradation when no index exists.
 - **Two-tier model split**: a strong reasoning model reviews (analysis, synthesis), cheap fast
   models explore (follow objectives, fetch context, compress evidence).
 - **Parallel tool calling**: `AllowMultipleToolCalls = true` on the reviewer's `ChatOptions`

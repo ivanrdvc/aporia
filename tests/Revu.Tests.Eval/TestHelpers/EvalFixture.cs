@@ -12,8 +12,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra.AI;
+using Revu.Infra.Cosmos;
 using Revu.Infra.Telemetry;
 using Revu.Review;
 using Revu.Tests.Eval.Evaluators;
@@ -84,6 +86,7 @@ public class EvalFixture : IAsyncLifetime
                 capture,
                 _host.Services.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
                 git,
+                new NullCodeGraphStore(),
                 new NullSessionProvider(),
                 new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
                 new PrContextProvider(),
@@ -115,6 +118,13 @@ public class EvalFixture : IAsyncLifetime
 
         protected override ValueTask StoreChatHistoryAsync(
             InvokedContext context, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+    }
+
+    private sealed class NullCodeGraphStore : ICodeGraphStore
+    {
+        public Task UpsertFileAsync(FileIndex file) => Task.CompletedTask;
+        public Task DeleteOrphansAsync(string repoId, HashSet<string> indexedPaths) => Task.CompletedTask;
+        public Task<List<FileIndex>> GetAllAsync(string repoId) => Task.FromResult(new List<FileIndex>());
     }
 }
 

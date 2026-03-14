@@ -10,7 +10,7 @@ public interface IGitConnector
     Task PostReview(ReviewRequest req, Diff diff, ReviewResult result);
 
     Task<string?> GetFile(ReviewRequest req, string path);
-    Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path);
+    Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path, bool recursive = false);
     Task<IReadOnlyList<SearchResult>> SearchCode(ReviewRequest req, string query);
     Task<PrContext> GetPrContext(ReviewRequest req);
 }

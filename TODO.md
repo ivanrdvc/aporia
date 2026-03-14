@@ -8,7 +8,8 @@
 
 ## Features
 
-- Build repo map (AST structural index) for compact codebase awareness
+- ~~Build repo map (AST structural index) for compact codebase awareness~~ (done: code graph)
+- LSP integration for type-resolved call graphs (fixes cross-file type resolution limitations in tree-sitter; requires local repo cloning)
 - Externalize prompts (load from blob/config instead of compiled `Prompts.cs`)
 - Switch auth from PAT-only to `DefaultAzureCredential` with PAT fallback
 - Semantic search — vector embeddings for similar-pattern detection, consistency checks, related tests

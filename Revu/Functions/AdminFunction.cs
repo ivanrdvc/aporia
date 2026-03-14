@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +8,7 @@ using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Enums;
 using Microsoft.OpenApi.Models;
 
+using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra.Cosmos;
 
@@ -22,16 +24,16 @@ public class AdminFunction(IRepoStore repoStore)
     [OpenApiRequestBody("application/json", typeof(RegisterRepoRequest), Description = "Repository to register. provider: 'ado' or 'github'.")]
     [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(Repository), Description = "Registered repository")]
     [OpenApiResponseWithBody(HttpStatusCode.BadRequest, "application/json", typeof(string), Description = "Validation error")]
-    public async Task<IActionResult> RegisterRepo(
+    public async Task<RegisterRepoResponse> RegisterRepo(
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "manage/repos")] HttpRequest req)
     {
         var body = await req.ReadFromJsonAsync<RegisterRepoRequest>();
 
         if (string.IsNullOrWhiteSpace(body?.RepositoryId) || string.IsNullOrWhiteSpace(body.Provider))
-            return new BadRequestObjectResult("repositoryId and provider are required.");
+            return new RegisterRepoResponse { Result = new BadRequestObjectResult("repositoryId and provider are required.") };
 
         if (!Enum.TryParse<GitProvider>(body.Provider, ignoreCase: true, out var provider))
-            return new BadRequestObjectResult($"Unknown provider '{body.Provider}'. Valid values: ado, github.");
+            return new RegisterRepoResponse { Result = new BadRequestObjectResult($"Unknown provider '{body.Provider}'. Valid values: ado, github.") };
 
         var repo = new Repository
         {
@@ -46,8 +48,31 @@ public class AdminFunction(IRepoStore repoStore)
 
         await repoStore.SaveAsync(repo);
 
-        return new OkObjectResult(repo);
+        var indexRequest = new IndexRequest(
+            repo.Id, body.Project ?? "", provider, body.DefaultBranch ?? "refs/heads/main");
+
+        return new RegisterRepoResponse
+        {
+            Result = new OkObjectResult(repo),
+            IndexMessage = JsonSerializer.Serialize(indexRequest)
+        };
     }
 
-    public record RegisterRepoRequest(string? RepositoryId, string? Provider, string? Name = null, string? Url = null, string? Organization = null);
+    public record RegisterRepoRequest(
+        string? RepositoryId,
+        string? Provider,
+        string? Name = null,
+        string? Url = null,
+        string? Organization = null,
+        string? Project = null,
+        string? DefaultBranch = null);
+}
+
+public class RegisterRepoResponse
+{
+    [HttpResult]
+    public IActionResult Result { get; set; } = new OkResult();
+
+    [QueueOutput("index-queue")]
+    public string? IndexMessage { get; set; }
 }

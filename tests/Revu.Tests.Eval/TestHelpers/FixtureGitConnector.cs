@@ -31,7 +31,7 @@ public sealed class FixtureGitConnector(Dictionary<string, string> files) : IGit
         return Task.FromResult(content);
     }
 
-    public Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path)
+    public Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path, bool recursive = false)
     {
         ListFilesCalls.Add(path);
         var prefix = "/" + path.TrimStart('/').TrimEnd('/') + "/";

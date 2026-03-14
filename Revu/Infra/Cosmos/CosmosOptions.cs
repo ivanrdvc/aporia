@@ -10,6 +10,7 @@ public class CosmosOptions
     public const string PrStateContainer = "pr-state";
     public const string ReviewsContainer = "reviews";
     public const string SessionsContainer = "sessions";
+    public const string CodeGraphContainer = "code-graph";
 
     [Required]
     public string ConnectionString { get; init; } = null!;

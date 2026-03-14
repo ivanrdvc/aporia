@@ -1,11 +1,12 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Text;
 
+using Revu.CodeGraph;
 using Revu.Git;
 
 namespace Revu.Review;
 
-public class ReviewerTools(IGitConnector git, ReviewRequest req, Diff diff)
+public class ReviewerTools(IGitConnector git, ReviewRequest req, Diff diff, CodeGraphQuery? codeGraphQuery = null)
 {
     [Description("Read full file contents. Pass multiple paths to fetch them all in one call.")]
     public Task<string> FetchFile(
@@ -87,6 +88,25 @@ public class ReviewerTools(IGitConnector git, ReviewRequest req, Diff diff)
                 sb.AppendLine(r.Line > 0 ? $"{r.Path}:{r.Line}: {r.Snippet}" : $"{r.Path} ({r.Snippet})");
             return (query, sb.ToString().TrimEnd());
         });
+    }
+
+    [Description(
+        "Query the structural code graph. Use BEFORE fetching files to understand how code " +
+        "connects. Supports: callers (who calls this?), implementations (who implements this " +
+        "interface?), dependents (what files depend on this one?), outline (symbols in a file), " +
+        "hierarchy (inheritance chain).")]
+    public Task<string> QueryCodeGraph(
+        [Description("callers | implementations | dependents | outline | hierarchy")]
+        string queryKind,
+        [Description("Symbol name (e.g. IGitConnector, Calculate) or file path (for outline/dependents)")]
+        string target,
+        [Description("File path to disambiguate when multiple symbols share a name")]
+        string? filePath = null)
+    {
+        if (codeGraphQuery is null)
+            return Task.FromResult("No code graph available for this repository. Use SearchCode and FetchFile instead.");
+
+        return Task.FromResult(codeGraphQuery.Execute(queryKind, target, filePath));
     }
 
     private static async Task<string> BatchAsync<T>(
