@@ -54,7 +54,7 @@ public class AdminFunction(IRepoStore repoStore, IOptions<RevuOptions> options)
 
         var branch = body.DefaultBranch ?? "refs/heads/main";
         var needsIndex = options.Value.EnableCodeGraph
-            && (existing is null || existing.Provider != provider);
+            && (existing is null || existing.Provider != provider || body.ForceReindex == true);
 
         return new RegisterRepoResponse
         {
@@ -72,7 +72,8 @@ public class AdminFunction(IRepoStore repoStore, IOptions<RevuOptions> options)
         string? Url = null,
         string? Organization = null,
         string? Project = null,
-        string? DefaultBranch = null);
+        string? DefaultBranch = null,
+        bool? ForceReindex = null);
 }
 
 public class RegisterRepoResponse
