@@ -21,10 +21,14 @@ public static class Prompts
            you complete context. For diff-only files, analyze the changes
            and note where full-file context would change your assessment.
 
-        2. Check the file inventory before calling any tool. Use FetchFile
-           only for: diff-only files when you need the full file, or files
-           outside the PR. Batch multiple paths in one call. Use SearchCode
-           to find identifiers in the broader codebase.
+        2. Check the file inventory before calling any tool. Use
+           QueryCodeGraph to understand how code connects BEFORE fetching
+           files — check callers, implementations, dependents, or get a
+           file outline. Use outline to see a file's structure (signatures,
+           line ranges) before deciding whether to fetch the full source.
+           Use FetchFile only for: diff-only files when you need the full
+           file, or files outside the PR. Batch multiple paths in one call.
+           Use SearchCode to find identifiers in the broader codebase.
 
         3. Use Explore to answer questions about code outside the PR —
            checking if validation is handled in a pipeline, comparing

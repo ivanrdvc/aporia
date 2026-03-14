@@ -4,7 +4,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
+using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra;
 using Revu.Infra.AI;
@@ -27,10 +27,10 @@ public class CoreStrategy(
     private const int ExplorerMaxRoundtrips = 10;
     private const int ReviewerMaxRoundtrips = 6;
 
-    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CancellationToken ct = default)
+    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
     {
         var prompt = BuildReviewPrompt(diff);
-        var tools = new ReviewerTools(git, req, diff);
+        var tools = new ReviewerTools(git, req, diff, codeGraph);
         var exploreTool = GuardedExploreTool.Create(explorerClient, tools, sessionProvider, logger);
 
         var reviewer = reviewerClient
@@ -51,6 +51,7 @@ public class CoreStrategy(
                         AIFunctionFactory.Create(tools.FetchFile),
                         AIFunctionFactory.Create(tools.ListDirectory),
                         AIFunctionFactory.Create(tools.SearchCode),
+                        AIFunctionFactory.Create(tools.QueryCodeGraph),
                         exploreTool,
                     ],
                     AllowMultipleToolCalls = true,
@@ -199,6 +200,7 @@ public class CoreStrategy(
                             AIFunctionFactory.Create(tools.FetchFile),
                             AIFunctionFactory.Create(tools.ListDirectory),
                             AIFunctionFactory.Create(tools.SearchCode),
+                            AIFunctionFactory.Create(tools.QueryCodeGraph),
                         ],
                         ResponseFormat = ChatResponseFormat.ForJsonSchema<ExplorationResult>(),
                         AdditionalProperties = new() { ["strict"] = true }

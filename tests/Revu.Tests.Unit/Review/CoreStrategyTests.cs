@@ -61,7 +61,8 @@ public class CoreStrategyTests
             .Returns(new ChatResponse(new ChatMessage(ChatRole.Assistant, reviewerResponse)));
 
         var explorer = Substitute.For<IChatClient>();
-        return new(reviewer, explorer, _git, new InMemoryChatHistoryProvider(),
+        return new(reviewer, explorer, _git,
+            new InMemoryChatHistoryProvider(),
             new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
             new PrContextProvider(),
             NullLogger<CoreStrategy>.Instance);

@@ -3,7 +3,8 @@ namespace Revu.Infra;
 public class RevuOptions
 {
     public const string SectionName = "Revu";
-    public bool IncrementalReviews { get; init; }
+    public bool EnableIncrementalReviews { get; init; }
+    public bool EnableCodeGraph { get; init; } = true;
 }
 
 public static class SessionKeys

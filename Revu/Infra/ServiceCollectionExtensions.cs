@@ -10,6 +10,7 @@ using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 
+using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra.Cosmos;
 
@@ -36,10 +37,13 @@ public static class ServiceCollectionExtensions
         db.Database.CreateContainerIfNotExistsAsync(CosmosOptions.RepositoriesContainer, "/id").GetAwaiter().GetResult();
         db.Database.CreateContainerIfNotExistsAsync(CosmosOptions.ReviewsContainer, "/repositoryId").GetAwaiter().GetResult();
 
+        db.Database.CreateContainerIfNotExistsAsync(CosmosOptions.CodeGraphContainer, "/repoId").GetAwaiter().GetResult();
+
         services.AddSingleton<CosmosDb>();
         services.AddSingleton<IRepoStore, RepoStore>();
         services.AddSingleton<IPrStateStore, PrStateStore>();
         services.AddSingleton<IReviewStore, ReviewStore>();
+        services.AddCodeGraph();
 
         services.AddSingleton<ChatHistoryProvider>(sp =>
             new CosmosChatHistoryProvider(
@@ -88,5 +92,13 @@ public static class ServiceCollectionExtensions
                     return client;
                 });
         });
+    }
+
+    private static void AddCodeGraph(this IServiceCollection services)
+    {
+        services.AddSingleton<ICodeGraphStore, CodeGraphStore>();
+        services.AddSingleton<ILanguageParser, CSharpParser>();
+        services.AddSingleton<ILanguageParser, TypeScriptParser>();
+        services.AddSingleton<CodeGraphIndexer>();
     }
 }

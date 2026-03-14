@@ -68,7 +68,7 @@ public class AdoConnector(
         if (lastIteration.Id is not { } iterationId)
             return new Diff([]);
 
-        var incremental = options.Value.IncrementalReviews;
+        var incremental = options.Value.EnableIncrementalReviews;
         var state = await stateStore.GetAsync(req.RepositoryId, req.PullRequestId);
         var lastReviewedIteration = state is not null ? int.Parse(state.Cursor) : (int?)null;
 
@@ -254,19 +254,22 @@ public class AdoConnector(
         }
     }
 
-    public async Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path)
+    public async Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path, bool recursive = false)
     {
-        var git = gitClients[req.Organization];
-        var items = await git.GetItemsAsync(
+        var client = gitClients[req.Organization];
+        var items = await client.GetItemsAsync(
             project: req.Project,
             repositoryId: req.RepositoryId,
             scopePath: path,
-            recursionLevel: VersionControlRecursionType.OneLevel,
+            recursionLevel: recursive ? VersionControlRecursionType.Full : VersionControlRecursionType.OneLevel,
             versionDescriptor: new GitVersionDescriptor
             {
                 Version = req.SourceBranch.Replace("refs/heads/", ""),
                 VersionType = GitVersionType.Branch
             });
+
+        if (recursive)
+            return items?.Where(i => !i.IsFolder).Select(i => i.Path).ToList() ?? [];
 
         return items?.Select(i => i.Path).Where(p => p != path).ToList() ?? [];
     }

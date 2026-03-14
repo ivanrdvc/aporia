@@ -90,12 +90,12 @@ Configuration:
 
 ```json
 {
-  "Revu": { "IncrementalReviews": true },
+  "Revu": { "EnableIncrementalReviews": true },
   "Cosmos": { "ConnectionString": "..." }
 }
 ```
 
-When `IncrementalReviews` is true, each PR update only reviews changes since the last review. When
+When `EnableIncrementalReviews` is true, each PR update only reviews changes since the last review. When
 false, the PR is reviewed once on creation and subsequent updates are skipped. Comment dedup
 (fingerprinting) is always active regardless of this flag. The Cosmos connection string is required.
 The database and containers (`sessions`, `pr-state`) are created automatically at startup.

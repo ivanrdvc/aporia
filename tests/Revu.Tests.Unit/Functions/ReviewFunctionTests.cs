@@ -1,9 +1,12 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
+using Revu.CodeGraph;
 using Revu.Functions;
 using Revu.Git;
+using Revu.Infra;
 using Revu.Infra.Cosmos;
 using Revu.Review;
 
@@ -12,6 +15,7 @@ namespace Revu.Tests.Unit.Functions;
 public class ReviewFunctionTests
 {
     private readonly IGitConnector _git = Substitute.For<IGitConnector>();
+    private readonly ICodeGraphStore _codeGraphStore = Substitute.For<ICodeGraphStore>();
     private readonly IReviewStore _reviewStore = Substitute.For<IReviewStore>();
     private readonly IReviewStrategy _strategy = Substitute.For<IReviewStrategy>();
 
@@ -20,7 +24,7 @@ public class ReviewFunctionTests
 
     private ReviewFunction CreateSut() => new(
         _git,
-        new Reviewer(_ => _strategy, NullLogger<Reviewer>.Instance),
+        new Reviewer(_ => _strategy, _codeGraphStore, Options.Create(new RevuOptions { EnableCodeGraph = true }), NullLogger<Reviewer>.Instance),
         _reviewStore,
         NullLogger<ReviewFunction>.Instance);
 
@@ -32,7 +36,7 @@ public class ReviewFunctionTests
 
         _git.GetConfig(_req).Returns(ProjectConfig.Default);
         _git.GetDiff(_req, ProjectConfig.Default).Returns(diff);
-        _strategy.Review(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<CancellationToken>())
+        _strategy.Review(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>())
             .Returns(result);
 
         await CreateSut().Run(_req);
@@ -64,7 +68,7 @@ public class ReviewFunctionTests
         await CreateSut().Run(_req);
 
         await _strategy.DidNotReceive().Review(
-            Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<CancellationToken>());
+            Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>());
         await _git.DidNotReceive().PostReview(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ReviewResult>());
     }
 }

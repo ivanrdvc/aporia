@@ -133,11 +133,12 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'AzureWebJobsStorage', value: storageConnectionString }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
         { name: 'Cosmos__ConnectionString', value: cosmosAccount.listConnectionStrings().connectionStrings[0].connectionString }
-        { name: 'Ai__Models__default', value: 'openai/gpt-5-mini' }
-        { name: 'Ai__Models__reasoning', value: 'openai/gpt-5-mini' }
+        { name: 'Ai__Models__default', value: 'anthropic/claude-haiku-4-5' }
+        { name: 'Ai__Models__reasoning', value: 'anthropic/claude-haiku-4-5' }
         { name: 'Ai__OpenAI__ApiKey', value: aiOpenAiKey }
         { name: 'Ai__Anthropic__ApiKey', value: aiAnthropicKey }
-        { name: 'Revu__IncrementalReviews', value: 'true' }
+        { name: 'Revu__EnableIncrementalReviews', value: 'true' }
+        { name: 'Revu__EnableCodeGraph', value: 'true' }
       ]
     }
   }

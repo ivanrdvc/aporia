@@ -56,9 +56,7 @@ jobs:
           scope: resourceGroup
           resource-group-name: rg-revu-prod
           template-file: infra/main.bicep
-          parameters: >
-            aiOpenAiKey=${{ secrets.AI_OPENAI_KEY }}
-            aiAnthropicKey=${{ secrets.AI_ANTHROPIC_KEY }}
+          parameters: '{"aiOpenAiKey": "${{ secrets.AI_OPENAI_KEY }}", "aiAnthropicKey": "${{ secrets.AI_ANTHROPIC_KEY }}"}'
 
       - name: Deploy function app
         uses: azure/functions-action@v1
