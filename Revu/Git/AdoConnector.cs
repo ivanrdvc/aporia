@@ -68,7 +68,7 @@ public class AdoConnector(
         if (lastIteration.Id is not { } iterationId)
             return new Diff([]);
 
-        var incremental = options.Value.IncrementalReviews;
+        var incremental = options.Value.EnableIncrementalReviews;
         var state = await stateStore.GetAsync(req.RepositoryId, req.PullRequestId);
         var lastReviewedIteration = state is not null ? int.Parse(state.Cursor) : (int?)null;
 

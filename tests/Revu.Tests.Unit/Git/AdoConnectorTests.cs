@@ -166,6 +166,6 @@ public class AdoConnectorTests
         new(new Dictionary<string, GitHttpClient> { ["testorg"] = git },
             new Dictionary<string, HttpClient> { ["testorg"] = new() },
             store,
-            Options.Create(new RevuOptions { IncrementalReviews = incremental }),
+            Options.Create(new RevuOptions { EnableIncrementalReviews = incremental }),
             Substitute.For<ILogger<AdoConnector>>());
 }

@@ -4,12 +4,10 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
 using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra;
 using Revu.Infra.AI;
-using Revu.Infra.Cosmos;
 using Revu.Infra.Middleware;
 using Revu.Infra.Telemetry;
 
@@ -19,7 +17,6 @@ public class CoreStrategy(
     [FromKeyedServices(ModelKey.Reasoning)] IChatClient reviewerClient,
     [FromKeyedServices(ModelKey.Default)] IChatClient explorerClient,
     IGitConnector git,
-    ICodeGraphStore codeGraph,
     ChatHistoryProvider sessionProvider,
     FileAgentSkillsProvider skillsProvider,
     PrContextProvider prContextProvider,
@@ -30,12 +27,10 @@ public class CoreStrategy(
     private const int ExplorerMaxRoundtrips = 10;
     private const int ReviewerMaxRoundtrips = 6;
 
-    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CancellationToken ct = default)
+    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
     {
         var prompt = BuildReviewPrompt(diff);
-        var graphDocs = await codeGraph.GetAllAsync(req.RepositoryId);
-        var query = graphDocs.Count > 0 ? new CodeGraphQuery(graphDocs) : null;
-        var tools = new ReviewerTools(git, req, diff, query);
+        var tools = new ReviewerTools(git, req, diff, codeGraph);
         var exploreTool = GuardedExploreTool.Create(explorerClient, tools, sessionProvider, logger);
 
         var reviewer = reviewerClient

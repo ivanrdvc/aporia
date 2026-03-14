@@ -52,6 +52,8 @@ public class AppFixture : IAsyncLifetime
         builder.Services.AddKeyedScoped<IReviewStrategy, CoreStrategy>(ReviewStrategy.Core);
         builder.Services.AddScoped<Reviewer>(sp => new Reviewer(
             sp.GetRequiredKeyedService<IReviewStrategy>,
+            sp.GetRequiredService<ICodeGraphStore>(),
+            sp.GetRequiredService<IOptions<RevuOptions>>(),
             sp.GetRequiredService<ILogger<Reviewer>>()));
 
         // Override Cosmos session provider — fresh session every run, captures to local JSON files.

@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using Revu.Git;
-using Revu.Infra.Cosmos;
 using Revu.Review;
 
 namespace Revu.Tests.Unit.Review;
@@ -62,9 +61,8 @@ public class CoreStrategyTests
             .Returns(new ChatResponse(new ChatMessage(ChatRole.Assistant, reviewerResponse)));
 
         var explorer = Substitute.For<IChatClient>();
-        var codeGraph = Substitute.For<ICodeGraphStore>();
-        codeGraph.GetAllAsync(Arg.Any<string>()).Returns(new List<Revu.CodeGraph.FileIndex>());
-        return new(reviewer, explorer, _git, codeGraph, new InMemoryChatHistoryProvider(),
+        return new(reviewer, explorer, _git,
+            new InMemoryChatHistoryProvider(),
             new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
             new PrContextProvider(),
             NullLogger<CoreStrategy>.Instance);

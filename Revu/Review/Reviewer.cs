@@ -2,12 +2,16 @@ using System.Diagnostics;
 using System.Text;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
+using Revu.CodeGraph;
+using Revu.Infra;
+using Revu.Infra.Cosmos;
 using Revu.Infra.Telemetry;
 
 namespace Revu.Review;
 
-public class Reviewer(Func<string, IReviewStrategy> strategyFactory, ILogger<Reviewer> logger)
+public class Reviewer(Func<string, IReviewStrategy> strategyFactory, ICodeGraphStore codeGraphStore, IOptions<RevuOptions> options, ILogger<Reviewer> logger)
 {
     private const int DefaultMaxComments = 5;
     private const int MaxInlineLineSpan = 20;
@@ -21,8 +25,11 @@ public class Reviewer(Func<string, IReviewStrategy> strategyFactory, ILogger<Rev
             { "repository", req.RepositoryId }
         };
 
+        var graphDocs = options.Value.EnableCodeGraph ? await codeGraphStore.GetAllAsync(req.RepositoryId) : null;
+        var codeGraph = graphDocs is { Count: > 0 } ? new CodeGraphQuery(graphDocs) : null;
+
         var strategy = strategyFactory(config.Review.Strategy ?? ReviewStrategy.Core);
-        var result = await strategy.Review(req, diff, config, ct);
+        var result = await strategy.Review(req, diff, config, codeGraph, ct);
 
         // Only allow findings on files actually changed in this PR — context files fetched by
         // investigators are read-only reference material and can't be anchored in ADO.

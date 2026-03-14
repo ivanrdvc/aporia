@@ -41,6 +41,23 @@ before fetching full source.
    `QueryCodeGraph("outline", filePath)` to see its structure (signatures, line ranges). Only
    fetches full source when it needs implementation details.
 
+## Configuration
+
+Code graph is enabled by default. To disable indexing and querying globally:
+
+```
+Revu__EnableCodeGraph=false
+```
+
+Or in `appsettings.json`:
+
+```json
+{ "Revu": { "EnableCodeGraph": false } }
+```
+
+When disabled, `QueryCodeGraph` returns a fallback message directing the reviewer to use
+`SearchCode` and `FetchFile` instead, and new repo registrations skip index enqueuing.
+
 ## Known limitations
 
 Tree-sitter is syntactic only — it cannot resolve overloads, extension methods, partial classes,

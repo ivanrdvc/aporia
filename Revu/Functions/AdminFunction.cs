@@ -8,13 +8,16 @@ using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Enums;
 using Microsoft.OpenApi.Models;
 
+using Microsoft.Extensions.Options;
+
 using Revu.CodeGraph;
 using Revu.Git;
+using Revu.Infra;
 using Revu.Infra.Cosmos;
 
 namespace Revu.Functions;
 
-public class AdminFunction(IRepoStore repoStore)
+public class AdminFunction(IRepoStore repoStore, IOptions<RevuOptions> options)
 {
     [Function("RegisterRepo")]
     [OpenApiOperation(operationId: "RegisterRepo", tags: ["Admin"],
@@ -50,7 +53,8 @@ public class AdminFunction(IRepoStore repoStore)
         await repoStore.SaveAsync(repo);
 
         var branch = body.DefaultBranch ?? "refs/heads/main";
-        var needsIndex = existing is null || existing.Provider != provider;
+        var needsIndex = options.Value.EnableCodeGraph
+            && (existing is null || existing.Provider != provider);
 
         return new RegisterRepoResponse
         {

@@ -60,4 +60,23 @@ public class ReviewTests(
 
         await PrintThreads(TestEvent);
     }
+
+    [Fact]
+    public async Task SelfReview_FullPipeline()
+    {
+        var target = Scenarios.SelfReview;
+        await ResetReviewState(target);
+        await GitClient.CleanThreads(target);
+
+        var config = await Git.GetConfig(target);
+        var diff = await Git.GetDiff(target, config);
+        var result = await Reviewer.Review(target, diff, config);
+
+        await Git.PostReview(target, diff, result);
+
+        Output.WriteLine($"Findings: {result.Findings.Count}  (maxComments: {config.Review.MaxComments})");
+        var files = result.Findings.Select(f => f.FilePath).Distinct().ToList();
+        Output.WriteLine($"Files: {string.Join(", ", files)}");
+        Output.WriteLine($"Sessions: {SessionDirectory}");
+    }
 }

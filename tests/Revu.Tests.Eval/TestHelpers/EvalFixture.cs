@@ -11,9 +11,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 using Revu.CodeGraph;
 using Revu.Git;
+using Revu.Infra;
 using Revu.Infra.AI;
 using Revu.Infra.Cosmos;
 using Revu.Infra.Telemetry;
@@ -86,11 +88,12 @@ public class EvalFixture : IAsyncLifetime
                 capture,
                 _host.Services.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
                 git,
-                new NullCodeGraphStore(),
                 new NullSessionProvider(),
                 new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
                 new PrContextProvider(),
                 NullLogger<CoreStrategy>.Instance),
+            new NullCodeGraphStore(),
+            Options.Create(new RevuOptions { EnableCodeGraph = true }),
             NullLogger<Reviewer>.Instance);
 
         return (reviewer, capture);

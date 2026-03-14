@@ -1,3 +1,5 @@
+using Revu.Git;
+
 namespace Revu.Tests.Integration.Fixtures;
 
 internal static class Scenarios
@@ -22,4 +24,15 @@ internal static class Scenarios
     // 2 iterations: iteration 1 has two bugs, iteration 2 fixes one.
     public static ReviewRequest IncrementalTest =>
         AdoThreadHelper.PrRequest(8, "refs/heads/feature/incremental-test");
+
+    // Self-review: Revu reviews its own code on the revu-ado mirror repo.
+    public static ReviewRequest SelfReview => new(
+        Provider: GitProvider.Ado,
+        Project: "ivanrndvc-sc",
+        RepositoryId: "4421a1a1-a185-4273-b7a9-58585a559fb1",
+        RepositoryName: "revu-ado",
+        PullRequestId: 18,
+        SourceBranch: "refs/heads/feat/code-graph",
+        TargetBranch: "refs/heads/main",
+        Organization: "ivanradovic");
 }

@@ -13,8 +13,16 @@ public class CleanupTests(
     [Fact]
     public async Task DeleteAllComments()
     {
+        await ResetReviewState(Target);
         await GitClient.CleanThreads(Target);
-
         Output.WriteLine($"Cleanup done on PR #{Target.PullRequestId}.");
+    }
+
+    [Fact]
+    public async Task DeleteAllComments_SelfReview()
+    {
+        await ResetReviewState(Scenarios.SelfReview);
+        await GitClient.CleanThreads(Scenarios.SelfReview);
+        Output.WriteLine($"Cleanup done on PR #{Scenarios.SelfReview.PullRequestId}.");
     }
 }
