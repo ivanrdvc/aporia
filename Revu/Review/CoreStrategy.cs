@@ -16,7 +16,6 @@ namespace Revu.Review;
 public class CoreStrategy(
     [FromKeyedServices(ModelKey.Reasoning)] IChatClient reviewerClient,
     [FromKeyedServices(ModelKey.Default)] IChatClient explorerClient,
-    IGitConnector git,
     ChatHistoryProvider sessionProvider,
     FileAgentSkillsProvider skillsProvider,
     PrContextProvider prContextProvider,
@@ -27,7 +26,7 @@ public class CoreStrategy(
     private const int ExplorerMaxRoundtrips = 10;
     private const int ReviewerMaxRoundtrips = 6;
 
-    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
+    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, IGitConnector git, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
     {
         var prompt = BuildReviewPrompt(diff);
         var tools = new ReviewerTools(git, req, diff, codeGraph);

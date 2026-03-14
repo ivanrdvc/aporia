@@ -1,4 +1,5 @@
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Revu.Git;
@@ -9,7 +10,7 @@ using Revu.Review;
 namespace Revu.Functions;
 
 public class ReviewFunction(
-    IGitConnector git,
+    IServiceProvider sp,
     Reviewer reviewer,
     IReviewStore reviewStore,
     ILogger<ReviewFunction> logger)
@@ -20,6 +21,8 @@ public class ReviewFunction(
     public async Task Run([QueueTrigger("review-queue")] ReviewRequest req)
     {
         logger.LogInformation("Processing review for PR #{PrId} in {Project}", req.PullRequestId, req.Project);
+
+        var git = sp.GetRequiredKeyedService<IGitConnector>(req.Provider);
 
         var config = await git.GetConfig(req);
         var diff = await git.GetDiff(req, config);
@@ -33,7 +36,7 @@ public class ReviewFunction(
             return;
         }
 
-        var findings = await reviewer.Review(req, diff, config);
+        var findings = await reviewer.Review(req, diff, config, git);
         await git.PostReview(req, diff, findings);
 
         logger.LogInformation("Posted {Count} findings for PR #{PrId}", findings.Findings.Count, req.PullRequestId);

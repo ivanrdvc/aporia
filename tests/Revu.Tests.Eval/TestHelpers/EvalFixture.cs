@@ -87,7 +87,6 @@ public class EvalFixture : IAsyncLifetime
             _ => new CoreStrategy(
                 capture,
                 _host.Services.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
-                git,
                 new NullSessionProvider(),
                 new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
                 new PrContextProvider(),

@@ -162,10 +162,21 @@ public class AdoConnectorTests
     private static readonly ReviewRequest Req = new(
         GitProvider.Ado, "proj", "repo-id", "repo", 42, "refs/heads/feature", "refs/heads/main", "testorg");
 
-    private static AdoConnector CreateConnector(GitHttpClient git, IPrStateStore store, bool incremental = false) =>
-        new(new Dictionary<string, GitHttpClient> { ["testorg"] = git },
-            new Dictionary<string, HttpClient> { ["testorg"] = new() },
+    private static AdoConnector CreateConnector(GitHttpClient git, IPrStateStore store, bool incremental = false)
+    {
+        var connector = new AdoConnector(
+            Options.Create(new AdoOptions
+            {
+                Organizations = new Dictionary<string, AdoOrgConfig>
+                {
+                    ["testorg"] = new() { Organization = "testorg", PersonalAccessToken = "fake-pat" }
+                }
+            }),
             store,
             Options.Create(new RevuOptions { EnableIncrementalReviews = incremental }),
             Substitute.For<ILogger<AdoConnector>>());
+
+        connector._gitClients["testorg"] = git;
+        return connector;
+    }
 }

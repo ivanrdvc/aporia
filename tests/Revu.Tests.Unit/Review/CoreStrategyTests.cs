@@ -22,7 +22,7 @@ public class CoreStrategyTests
         var json = """{"findings":[{"filePath":"file.cs","startLine":1,"endLine":1,"severity":"critical","message":"Potential null ref","suggestion":null,"suggestedCode":null}],"summary":"Found one issue."}""";
         var sut = CreateSut(json);
 
-        var result = await sut.Review(_request, _diff, ProjectConfig.Default);
+        var result = await sut.Review(_request, _diff, ProjectConfig.Default, _git);
 
         Assert.Single(result.Findings);
         Assert.Equal("file.cs", result.Findings[0].FilePath);
@@ -34,7 +34,7 @@ public class CoreStrategyTests
     {
         var sut = CreateSut("not json");
 
-        var result = await sut.Review(_request, _diff, ProjectConfig.Default);
+        var result = await sut.Review(_request, _diff, ProjectConfig.Default, _git);
 
         Assert.Empty(result.Findings);
         Assert.Equal("Review completed but failed to parse structured output.", result.Summary);
@@ -45,7 +45,7 @@ public class CoreStrategyTests
     {
         var sut = CreateSut("""{"findings":[],"summary":"LGTM"}""");
 
-        var result = await sut.Review(_request, _diff, ProjectConfig.Default);
+        var result = await sut.Review(_request, _diff, ProjectConfig.Default, _git);
 
         Assert.Empty(result.Findings);
         Assert.Equal("LGTM", result.Summary);
@@ -61,7 +61,7 @@ public class CoreStrategyTests
             .Returns(new ChatResponse(new ChatMessage(ChatRole.Assistant, reviewerResponse)));
 
         var explorer = Substitute.For<IChatClient>();
-        return new(reviewer, explorer, _git,
+        return new(reviewer, explorer,
             new InMemoryChatHistoryProvider(),
             new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
             new PrContextProvider(),
