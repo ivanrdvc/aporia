@@ -24,9 +24,35 @@ The workaround: fetch both the base and target file content, then diff locally w
 
 The file list comes from the iteration API (PR-scoped, handles renames). Content is pinned to that iteration's source/target commit SHAs, so diffs are stable even if branch tips move while the review is running.
 
-## Code Search behavior
+## Code Search behavior (ADO)
 
 ADO Code Search (`almsearch.dev.azure.com`) tokenizes queries and ANDs the tokens, so a multi-word query like `var order = await` matches any file containing all those tokens, returning broad noise. Identifiers are atomic: `SetAwaitingValidation` returns nothing even though `SetAwaitingValidationOrderStatusCommandHandler` exists; suffix wildcards (`SetAwaitingValidation*`) are required for partial matches. Exact phrase matching works with quotes (`"return true"`), and boolean `OR` is supported but unreliable for code search.
+
+# GitHub Connector
+
+`GitHubConnector` implements `IGitConnector` using the GitHub REST API v3.
+
+## GetDiff flow
+
+GitHub provides unified patches directly via the PR files endpoint — no local diffing needed
+(unlike ADO). File content is fetched via the contents API; files over 1MB fall back to the
+blob API.
+
+Incremental reviews use the compare API (`base...head`) with a 250-file cap. If the result
+is truncated or the cursor SHA is gone (force-push), falls back to full PR file list.
+
+## PostReview
+
+Comments are posted as pull request reviews (inline) + an issue comment (summary). Key
+differences from ADO:
+
+- **Dedup**: HTML comment fingerprints (`<!-- revu:fp:hash -->`) in comment bodies, matched
+  via regex on existing review comments. ADO uses thread properties.
+- **Line placement**: comments must target lines within diff hunks. Lines outside hunks go
+  into the review body as a text list.
+- **Retry chain**: GitHub returns 422 for invalid comment positions. Fallback sequence:
+  batch → individual → strip suggestion → single-line → skip.
+- **Summary**: upserted as an issue comment with a marker (`<!-- revu:summary -->`).
 
 # Cosmos DB
 

@@ -57,10 +57,7 @@ public class ReviewerTools(IGitConnector git, ReviewRequest req, Diff diff, Code
 
             if (sanitized.Any(c => ";{}=<>!&|,".Contains(c)) || sanitized.Split(' ').Length > 2)
                 return (query,
-                    "Bad query — pass a single identifier (e.g. \"OrderService\"), " +
-                    "not a code snippet. ADO search tokenizes multi-word queries and " +
-                    "matches on common keywords like 'return', 'var', 'await', " +
-                    "producing noise instead of precise results.");
+                    "Bad query — pass a single identifier (e.g. \"OrderService\"), not a code snippet.");
 
             const int maxLocalResults = 5;
             var localMatches = diff.Files
@@ -73,9 +70,8 @@ public class ReviewerTools(IGitConnector git, ReviewRequest req, Diff diff, Code
 
             var results = await git.SearchCode(req, sanitized);
 
-            // Wildcard fallback — ADO treats PascalCase as atomic tokens,
-            // so partial identifiers return nothing without a suffix wildcard
-            if (results.Count == 0 && !sanitized.Contains('*'))
+            // ADO treats PascalCase as atomic tokens — suffix wildcard needed for partial matches
+            if (results.Count == 0 && !sanitized.Contains('*') && req.Provider == GitProvider.Ado)
                 results = await git.SearchCode(req, sanitized + "*");
 
             if (localMatches.Count == 0 && results.Count == 0)
