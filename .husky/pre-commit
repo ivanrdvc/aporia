@@ -6,10 +6,13 @@ export PATH="/usr/local/share/dotnet:$HOME/.dotnet/tools:$PATH"
 # Get staged .cs files before formatting
 STAGED_CS=$(git diff --cached --name-only --diff-filter=d -- '*.cs')
 
+# Nothing to format
+[ -z "$STAGED_CS" ] && exit 0
+
 # Run dotnet format on staged files only
 dotnet husky run --group pre-commit
 
 # Re-stage only the files that were originally staged
-if [ -n "$STAGED_CS" ]; then
-  echo "$STAGED_CS" | xargs git add
-fi
+echo "$STAGED_CS" | while IFS= read -r file; do
+  git add "$file"
+done
