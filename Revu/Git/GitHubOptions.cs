@@ -6,7 +6,6 @@ public class GitHubOptions
 {
     public const string SectionName = "GitHub";
 
-    [Required, MinLength(1)]
     public Dictionary<string, GitHubOrgConfig> Organizations { get; init; } = [];
 
     public string? WebhookSecret { get; init; }

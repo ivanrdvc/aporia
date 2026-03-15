@@ -25,11 +25,10 @@ public class ReviewTests(
     public async Task Review_FullPipeline_PostsFindings()
     {
         await ResetReviewState(TestEvent);
-        await TestHelper.CleanComments(TestEvent);
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var result = await Reviewer.Review(TestEvent, diff, config, Git);
+        var result = await Reviewer.Review(TestEvent, diff, config);
 
         await Git.PostReview(TestEvent, diff, result);
 
@@ -43,11 +42,10 @@ public class ReviewTests(
     public async Task Review_FullPipeline_Verbose()
     {
         await ResetReviewState(TestEvent);
-        await TestHelper.CleanComments(TestEvent);
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var result = await Reviewer.Review(TestEvent, diff, config, Git);
+        var result = await Reviewer.Review(TestEvent, diff, config);
         await Git.PostReview(TestEvent, diff, result);
 
         Output.WriteLine($"Findings: {result.Findings.Count}  (maxComments: {config.Review.MaxComments})\n");
@@ -66,11 +64,10 @@ public class ReviewTests(
     {
         var target = Scenarios.SelfReview;
         await ResetReviewState(target);
-        await TestHelper.CleanComments(target);
 
         var config = await Git.GetConfig(target);
         var diff = await Git.GetDiff(target, config);
-        var result = await Reviewer.Review(target, diff, config, Git);
+        var result = await Reviewer.Review(target, diff, config);
 
         await Git.PostReview(target, diff, result);
 

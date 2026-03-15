@@ -14,33 +14,6 @@ internal class AdoTestHelper(TestRepoOptions options, GitHttpClient gitClient) :
         new(options.Provider, options.Project, options.RepositoryId, options.RepositoryName,
             prId, sourceBranch, targetBranch, options.Organization ?? "");
 
-    public async Task CleanComments(ReviewRequest req)
-    {
-        var threads = await gitClient.GetThreadsAsync(
-            project: req.Project,
-            repositoryId: req.RepositoryId,
-            pullRequestId: req.PullRequestId);
-
-        foreach (var thread in threads)
-        {
-            if (thread.Id <= 0 || thread.Comments is null)
-                continue;
-
-            foreach (var comment in thread.Comments)
-            {
-                if (comment.Id <= 0 || comment.IsDeleted)
-                    continue;
-
-                await gitClient.DeleteCommentAsync(
-                    repositoryId: req.RepositoryId,
-                    pullRequestId: req.PullRequestId,
-                    threadId: thread.Id,
-                    commentId: comment.Id,
-                    project: req.Project);
-            }
-        }
-    }
-
     public async Task<int> GetRevuCommentCount(ReviewRequest req)
     {
         var threads = await GetRevuThreads(req);

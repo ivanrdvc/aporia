@@ -17,7 +17,7 @@ public class IncrementalReviewTests(
     public async Task IncrementalReview_SkipsWhenNoNewIteration()
     {
         // --- Clean slate ---
-        await TestHelper.CleanComments(TestEvent);
+
         Output.WriteLine("=== Clean slate ===\n");
 
         // --- Run 1: full review ---
@@ -28,7 +28,7 @@ public class IncrementalReviewTests(
         Assert.NotEmpty(diff1.Files);
         Assert.NotNull(diff1.Cursor);
 
-        var result1 = await Reviewer.Review(TestEvent, diff1, config, Git);
+        var result1 = await Reviewer.Review(TestEvent, diff1, config);
         await Git.PostReview(TestEvent, diff1, result1);
 
         var threadsAfterRun1 = await TestHelper.GetRevuCommentCount(TestEvent);
@@ -52,7 +52,7 @@ public class IncrementalReviewTests(
     public async Task PostReview_DeduplicatesMatchingFingerprints()
     {
         // --- Clean slate ---
-        await TestHelper.CleanComments(TestEvent);
+
 
         // Use a synthetic result — we're testing PostReview dedup, not the LLM
         var diff = new Diff([new FileChange("src/Basket.API/Model/BasketItem.cs", ChangeKind.Edit, "+ added")]);

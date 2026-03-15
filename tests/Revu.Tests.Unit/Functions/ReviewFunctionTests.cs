@@ -44,7 +44,7 @@ public class ReviewFunctionTests
 
         _git.GetConfig(_req).Returns(ProjectConfig.Default);
         _git.GetDiff(_req, ProjectConfig.Default).Returns(diff);
-        _strategy.Review(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<IGitConnector>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>())
+        _strategy.Review(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>())
             .Returns(result);
 
         await CreateSut().Run(_req);
@@ -76,7 +76,7 @@ public class ReviewFunctionTests
         await CreateSut().Run(_req);
 
         await _strategy.DidNotReceive().Review(
-            Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<IGitConnector>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>());
+            Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>());
         await _git.DidNotReceive().PostReview(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ReviewResult>());
     }
 }

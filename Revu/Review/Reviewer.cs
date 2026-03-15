@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Revu.CodeGraph;
-using Revu.Git;
 using Revu.Infra;
 using Revu.Infra.Cosmos;
 using Revu.Infra.Telemetry;
@@ -18,7 +17,7 @@ public class Reviewer(Func<string, IReviewStrategy> strategyFactory, ICodeGraphS
     private const int MaxInlineLineSpan = 20;
     private const int MaxCodeFixLineSpan = 15;
 
-    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, IGitConnector git, CancellationToken ct = default)
+    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CancellationToken ct = default)
     {
         var tags = new TagList
         {
@@ -30,7 +29,7 @@ public class Reviewer(Func<string, IReviewStrategy> strategyFactory, ICodeGraphS
         var codeGraph = graphDocs is { Count: > 0 } ? new CodeGraphQuery(graphDocs) : null;
 
         var strategy = strategyFactory(config.Review.Strategy ?? ReviewStrategy.Core);
-        var result = await strategy.Review(req, diff, config, git, codeGraph, ct);
+        var result = await strategy.Review(req, diff, config, codeGraph, ct);
 
         // Only allow findings on files actually changed in this PR — context files fetched by
         // investigators are read-only reference material and can't be anchored in ADO.

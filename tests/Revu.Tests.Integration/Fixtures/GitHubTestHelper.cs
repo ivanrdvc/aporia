@@ -33,8 +33,6 @@ internal class GitHubTestHelper : ITestHelper, IDisposable
         new(_options.Provider, _options.Project, _options.RepositoryId, _options.RepositoryName,
             prId, sourceBranch, targetBranch, _options.Organization ?? "");
 
-    public Task CleanComments(ReviewRequest req) => Task.CompletedTask;
-
     public async Task<int> GetRevuCommentCount(ReviewRequest req)
     {
         var (owner, repo) = ParseRepoId(req.RepositoryId);

@@ -16,9 +16,9 @@ using Revu.Infra.Cosmos;
 namespace Revu.Git;
 
 public class AdoConnector(
-    IOptions<AdoOptions> adoOptions,
     IPrStateStore stateStore,
-    IOptions<RevuOptions> options,
+    IOptions<AdoOptions> adoOptions,
+    IOptions<RevuOptions> revuOptions,
     ILogger<AdoConnector> logger) : IGitConnector
 {
     private const string RevuVersion = "revu:version";
@@ -94,7 +94,7 @@ public class AdoConnector(
         if (lastIteration.Id is not { } iterationId)
             return new Diff([]);
 
-        var incremental = options.Value.EnableIncrementalReviews;
+        var incremental = revuOptions.Value.EnableIncrementalReviews;
         var state = await stateStore.GetAsync(req.RepositoryId, req.PullRequestId);
         var lastReviewedIteration = state is not null ? int.Parse(state.Cursor) : (int?)null;
 

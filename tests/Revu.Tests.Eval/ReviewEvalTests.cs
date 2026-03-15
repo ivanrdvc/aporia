@@ -32,7 +32,7 @@ public class ReviewEvalTests(EvalFixture fixture, ITestOutputHelper output) : IC
         var (reviewer, capture) = fixture.CreateReviewer(git);
 
         // Act — run the actual review
-        var result = await reviewer.Review(data.Request, data.Diff, data.Config, git);
+        var result = await reviewer.Review(data.Request, data.Diff, data.Config);
 
         // Build evaluation inputs
         var capturedMessages = capture.Messages;

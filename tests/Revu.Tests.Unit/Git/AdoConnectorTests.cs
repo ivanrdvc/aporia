@@ -165,6 +165,7 @@ public class AdoConnectorTests
     private static AdoConnector CreateConnector(GitHttpClient git, IPrStateStore store, bool incremental = false)
     {
         var connector = new AdoConnector(
+            store,
             Options.Create(new AdoOptions
             {
                 Organizations = new Dictionary<string, AdoOrgConfig>
@@ -172,7 +173,6 @@ public class AdoConnectorTests
                     ["testorg"] = new() { Organization = "testorg", PersonalAccessToken = "fake-pat" }
                 }
             }),
-            store,
             Options.Create(new RevuOptions { EnableIncrementalReviews = incremental }),
             Substitute.For<ILogger<AdoConnector>>());
 

@@ -1,5 +1,6 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
@@ -22,7 +23,7 @@ public class CoreStrategyTests
         var json = """{"findings":[{"filePath":"file.cs","startLine":1,"endLine":1,"severity":"critical","message":"Potential null ref","suggestion":null,"suggestedCode":null}],"summary":"Found one issue."}""";
         var sut = CreateSut(json);
 
-        var result = await sut.Review(_request, _diff, ProjectConfig.Default, _git);
+        var result = await sut.Review(_request, _diff, ProjectConfig.Default);
 
         Assert.Single(result.Findings);
         Assert.Equal("file.cs", result.Findings[0].FilePath);
@@ -34,7 +35,7 @@ public class CoreStrategyTests
     {
         var sut = CreateSut("not json");
 
-        var result = await sut.Review(_request, _diff, ProjectConfig.Default, _git);
+        var result = await sut.Review(_request, _diff, ProjectConfig.Default);
 
         Assert.Empty(result.Findings);
         Assert.Equal("Review completed but failed to parse structured output.", result.Summary);
@@ -45,7 +46,7 @@ public class CoreStrategyTests
     {
         var sut = CreateSut("""{"findings":[],"summary":"LGTM"}""");
 
-        var result = await sut.Review(_request, _diff, ProjectConfig.Default, _git);
+        var result = await sut.Review(_request, _diff, ProjectConfig.Default);
 
         Assert.Empty(result.Findings);
         Assert.Equal("LGTM", result.Summary);
@@ -60,8 +61,12 @@ public class CoreStrategyTests
                 Arg.Any<CancellationToken>())
             .Returns(new ChatResponse(new ChatMessage(ChatRole.Assistant, reviewerResponse)));
 
+        var services = new ServiceCollection();
+        services.AddKeyedSingleton<IGitConnector>(GitProvider.Ado, _git);
+        var sp = services.BuildServiceProvider();
+
         var explorer = Substitute.For<IChatClient>();
-        return new(reviewer, explorer,
+        return new(reviewer, explorer, sp,
             new InMemoryChatHistoryProvider(),
             new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
             new PrContextProvider(),
