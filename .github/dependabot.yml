@@ -5,16 +5,18 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 10
+    labels:
+      - dependencies
     groups:
       azure:
         patterns:
           - "Azure.*"
           - "Microsoft.Azure.*"
-      ai:
+      microsoft-extensions:
         patterns:
+          - "Microsoft.Extensions.*"
+        exclude-patterns:
           - "Microsoft.Extensions.AI*"
-          - "Microsoft.Agents.*"
-          - "Anthropic*"
       opentelemetry:
         patterns:
           - "OpenTelemetry*"
@@ -24,3 +26,5 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    labels:
+      - dependencies
