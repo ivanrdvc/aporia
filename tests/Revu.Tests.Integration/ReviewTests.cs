@@ -18,14 +18,13 @@ public class ReviewTests(
         var config = Services.GetRequiredService<IConfiguration>();
         var prId = config.GetValue<int>("TestTarget:PrId");
         var branch = config.GetValue<string>("TestTarget:Branch")!;
-        return AdoThreadHelper.PrRequest(prId, branch);
+        return TestHelper.BuildRequest(prId, branch);
     }
 
     [Fact]
     public async Task Review_FullPipeline_PostsFindings()
     {
         await ResetReviewState(TestEvent);
-        await GitClient.CleanThreads(TestEvent);
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
@@ -43,7 +42,6 @@ public class ReviewTests(
     public async Task Review_FullPipeline_Verbose()
     {
         await ResetReviewState(TestEvent);
-        await GitClient.CleanThreads(TestEvent);
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
@@ -66,7 +64,6 @@ public class ReviewTests(
     {
         var target = Scenarios.SelfReview;
         await ResetReviewState(target);
-        await GitClient.CleanThreads(target);
 
         var config = await Git.GetConfig(target);
         var diff = await Git.GetDiff(target, config);

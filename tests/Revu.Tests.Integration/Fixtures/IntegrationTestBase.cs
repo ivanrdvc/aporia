@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.TeamFoundation.SourceControl.WebApi;
 
 using Revu.Git;
 using Revu.Infra.Cosmos;
@@ -24,7 +23,7 @@ public abstract class IntegrationTestBase(
     protected ITestOutputHelper Output => output;
     protected string SessionDirectory => fixture.SessionDirectory;
     protected IGitConnector Git => Services.GetRequiredService<IGitConnector>();
-    protected GitHttpClient GitClient => Services.GetRequiredService<IReadOnlyDictionary<string, GitHttpClient>>().Values.First();
+    protected ITestHelper TestHelper => Services.GetRequiredService<ITestHelper>();
     protected Reviewer Reviewer => Services.GetRequiredService<Reviewer>();
 
     /// <summary>Reset iteration state so GetDiff returns a full diff.</summary>
@@ -34,41 +33,9 @@ public abstract class IntegrationTestBase(
             .SaveAsync(req.RepositoryId, req.PullRequestId, "0");
     }
 
-    /// <summary>Fetch and print all visible PR threads to test output.</summary>
-    protected async Task PrintThreads(ReviewRequest req)
-    {
-        var threads = await GitClient.GetThreadsAsync(
-            project: req.Project,
-            repositoryId: req.RepositoryId,
-            pullRequestId: req.PullRequestId);
-
-        var visibleThreads = threads
-            .Where(t => t.Comments.Any(c => c.Content is not null))
-            .ToList();
-
-        Output.WriteLine($"=== PR threads ({visibleThreads.Count}) ===\n");
-
-        foreach (var thread in visibleThreads)
-        {
-            var ctx = thread.ThreadContext;
-            if (ctx?.FilePath is not null)
-            {
-                var line = ctx.RightFileStart?.Line is not null
-                    ? $"L{ctx.RightFileStart.Line}-{ctx.RightFileEnd?.Line ?? ctx.RightFileStart.Line}"
-                    : "";
-                Output.WriteLine($"--- {ctx.FilePath} {line} [{thread.Status}] ---");
-            }
-            else
-            {
-                Output.WriteLine($"--- (general) [{thread.Status}] ---");
-            }
-
-            foreach (var comment in thread.Comments.Where(c => c.Content is not null))
-                Output.WriteLine(comment.Content);
-
-            Output.WriteLine("");
-        }
-    }
+    /// <summary>Fetch and print all visible PR comments to test output.</summary>
+    protected Task PrintThreads(ReviewRequest req) =>
+        TestHelper.PrintComments(req, Output);
 
     public void Dispose() => _scope.Dispose();
 }

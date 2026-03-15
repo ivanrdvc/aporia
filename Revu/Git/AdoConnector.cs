@@ -16,19 +16,45 @@ using Revu.Infra.Cosmos;
 namespace Revu.Git;
 
 public class AdoConnector(
-    IReadOnlyDictionary<string, GitHttpClient> gitClients,
-    IReadOnlyDictionary<string, HttpClient> searchClients,
     IPrStateStore stateStore,
-    IOptions<RevuOptions> options,
+    IOptions<AdoOptions> adoOptions,
+    IOptions<RevuOptions> revuOptions,
     ILogger<AdoConnector> logger) : IGitConnector
 {
     private const string RevuVersion = "revu:version";
     private const string RevuFingerprint = "revu:fingerprint";
     private const int MaxChangeEntries = 5000;
 
+    internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = new();
+    internal readonly ConcurrentDictionary<string, HttpClient> _searchClients = new();
+
+    private GitHttpClient GetGitClient(string org) =>
+        _gitClients.GetOrAdd(org, key =>
+        {
+            var config = adoOptions.Value.Organizations[key];
+            var connection = new VssConnection(
+                new Uri($"https://dev.azure.com/{config.Organization}"),
+                new VssBasicCredential(string.Empty, config.PersonalAccessToken));
+            return connection.GetClient<GitHttpClient>();
+        });
+
+    private HttpClient GetSearchClient(string org) =>
+        _searchClients.GetOrAdd(org, key =>
+        {
+            var config = adoOptions.Value.Organizations[key];
+            var client = new HttpClient
+            {
+                BaseAddress = new Uri($"https://almsearch.dev.azure.com/{config.Organization}/")
+            };
+            var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{config.PersonalAccessToken}"));
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
+            return client;
+        });
+
     public async Task<ProjectConfig> GetConfig(ReviewRequest req)
     {
-        var git = gitClients[req.Organization];
+        var git = GetGitClient(req.Organization);
         try
         {
             var item = await git.GetItemAsync(
@@ -54,7 +80,7 @@ public class AdoConnector(
 
     public async Task<Diff> GetDiff(ReviewRequest req, ProjectConfig config)
     {
-        var git = gitClients[req.Organization];
+        var git = GetGitClient(req.Organization);
 
         var iterations = await git.GetPullRequestIterationsAsync(
             project: req.Project,
@@ -68,7 +94,7 @@ public class AdoConnector(
         if (lastIteration.Id is not { } iterationId)
             return new Diff([]);
 
-        var incremental = options.Value.EnableIncrementalReviews;
+        var incremental = revuOptions.Value.EnableIncrementalReviews;
         var state = await stateStore.GetAsync(req.RepositoryId, req.PullRequestId);
         var lastReviewedIteration = state is not null ? int.Parse(state.Cursor) : (int?)null;
 
@@ -166,7 +192,7 @@ public class AdoConnector(
 
     public async Task PostReview(ReviewRequest req, Diff diff, ReviewResult result)
     {
-        var git = gitClients[req.Organization];
+        var git = GetGitClient(req.Organization);
 
         // Fetch existing Revu threads for dedup
         var existingThreads = await git.GetThreadsAsync(
@@ -234,7 +260,7 @@ public class AdoConnector(
     {
         try
         {
-            var git = gitClients[req.Organization];
+            var git = GetGitClient(req.Organization);
             var item = await git.GetItemAsync(
                 project: req.Project,
                 repositoryId: req.RepositoryId,
@@ -256,7 +282,7 @@ public class AdoConnector(
 
     public async Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path, bool recursive = false)
     {
-        var client = gitClients[req.Organization];
+        var client = GetGitClient(req.Organization);
         var items = await client.GetItemsAsync(
             project: req.Project,
             repositoryId: req.RepositoryId,
@@ -288,7 +314,7 @@ public class AdoConnector(
             }
         };
 
-        var search = searchClients[req.Organization];
+        var search = GetSearchClient(req.Organization);
         var response = await search.PostAsJsonAsync(
             $"{req.Project}/_apis/search/codesearchresults?api-version=7.1", body);
 
@@ -308,7 +334,7 @@ public class AdoConnector(
 
     public async Task<PrContext> GetPrContext(ReviewRequest req)
     {
-        var git = gitClients[req.Organization];
+        var git = GetGitClient(req.Organization);
         try
         {
             var prTask = git.GetPullRequestByIdAsync(req.PullRequestId, req.Project);
@@ -338,7 +364,7 @@ public class AdoConnector(
     {
         try
         {
-            var stream = await gitClients[req.Organization].GetItemContentAsync(
+            var stream = await GetGitClient(req.Organization).GetItemContentAsync(
                 project: req.Project,
                 repositoryId: req.RepositoryId,
                 path: path,

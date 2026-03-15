@@ -83,11 +83,16 @@ public class EvalFixture : IAsyncLifetime
         var capture = new CapturingChatClient(
             _host.Services.GetRequiredKeyedService<IChatClient>(ModelKey.Reasoning));
 
+        var services = new ServiceCollection();
+        services.AddKeyedSingleton(GitProvider.Ado, git);
+        services.AddKeyedSingleton(GitProvider.GitHub, git);
+        var sp = services.BuildServiceProvider();
+
         var reviewer = new Reviewer(
             _ => new CoreStrategy(
                 capture,
                 _host.Services.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
-                git,
+                sp,
                 new NullSessionProvider(),
                 new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
                 new PrContextProvider(),

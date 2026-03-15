@@ -1,5 +1,6 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
@@ -51,6 +52,37 @@ public class CoreStrategyTests
         Assert.Equal("LGTM", result.Summary);
     }
 
+    [Fact]
+    public void AnnotatePatchWithLineNumbers_AddsCorrectLineNumbers()
+    {
+        var patch = "@@ -91,5 +91,37 @@ FROM ordering.orders\n" +
+                    " \n" +
+                    "             return [];\n" +
+                    "         }\n" +
+                    "+\n" +
+                    "+        private async Task<bool> Check(int id)\n" +
+                    "+        {\n" +
+                    "+            var cred = \"postgres\";";
+
+        var result = CoreStrategy.AnnotatePatchWithLineNumbers(patch);
+
+        Assert.Contains("   91  ", result);
+        Assert.Contains("   94 +", result);
+        Assert.Contains("   97 +            var cred", result);
+    }
+
+    [Fact]
+    public void AnnotatePatchWithLineNumbers_DeletedLinesGetNoNumber()
+    {
+        var patch = "@@ -1,3 +1,3 @@\n context\n-old line\n+new line";
+
+        var result = CoreStrategy.AnnotatePatchWithLineNumbers(patch);
+
+        Assert.Contains("    1  context", result);
+        Assert.Contains("      -old line", result);
+        Assert.Contains("    2 +new line", result);
+    }
+
     private CoreStrategy CreateSut(string reviewerResponse)
     {
         var reviewer = Substitute.For<IChatClient>();
@@ -60,8 +92,12 @@ public class CoreStrategyTests
                 Arg.Any<CancellationToken>())
             .Returns(new ChatResponse(new ChatMessage(ChatRole.Assistant, reviewerResponse)));
 
+        var services = new ServiceCollection();
+        services.AddKeyedSingleton<IGitConnector>(GitProvider.Ado, _git);
+        var sp = services.BuildServiceProvider();
+
         var explorer = Substitute.For<IChatClient>();
-        return new(reviewer, explorer, _git,
+        return new(reviewer, explorer, sp,
             new InMemoryChatHistoryProvider(),
             new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")),
             new PrContextProvider(),

@@ -12,7 +12,9 @@ Also add: `AI_OPENAI_KEY`, `AI_ANTHROPIC_KEY`. Push to `main` deploys automatica
 
 ## Adding a repository
 
-### 1. Add org credentials (if new org)
+### ADO
+
+#### 1. Add org credentials (if new org)
 
 ```bash
 az functionapp config appsettings set -n func-revu -g rg-revu-prod --settings \
@@ -20,7 +22,7 @@ az functionapp config appsettings set -n func-revu -g rg-revu-prod --settings \
   "AzureDevOps__Organizations__<org>__PersonalAccessToken=<pat>"
 ```
 
-### 2. Register the repo
+#### 2. Register the repo
 
 ```bash
 curl -X POST "https://func-revu.azurewebsites.net/api/manage/repos?code=<function-key>" \
@@ -30,10 +32,45 @@ curl -X POST "https://func-revu.azurewebsites.net/api/manage/repos?code=<functio
 
 Get the function key: `az functionapp keys list -n func-revu -g rg-revu-prod`
 
-### 3. Set up the webhook in ADO
+#### 3. Set up the webhook in ADO
 
 **Project Settings → Service Hooks → Web Hooks → Pull request created/updated**:
 
 ```
 https://func-revu.azurewebsites.net/api/webhook/ado?code=<function-key>
 ```
+
+### GitHub
+
+#### 1. Add org credentials (if new org)
+
+```bash
+az functionapp config appsettings set -n func-revu -g rg-revu-prod --settings \
+  "GitHub__Organizations__<key>__Token=<pat>"
+```
+
+For local dev / integration tests:
+
+```bash
+dotnet user-secrets set "GitHub:Organizations:<key>:Token" "<pat>" --project Revu/Revu.csproj
+dotnet user-secrets set "GitHub:Organizations:<key>:Token" "<pat>" --project tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj
+```
+
+PAT needs `repo` scope. Or use `gh auth token` if already authenticated via GitHub CLI.
+
+#### 2. Register the repo
+
+```bash
+curl -X POST "https://func-revu.azurewebsites.net/api/manage/repos?code=<function-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"repositoryId":"<owner>/<repo>","provider":"github","name":"<repo>","organization":"<owner>"}'
+```
+
+#### 3. Set up the webhook in GitHub
+
+**Repo Settings → Webhooks → Add webhook**:
+
+- Payload URL: `https://func-revu.azurewebsites.net/api/webhook/github?code=<function-key>`
+- Content type: `application/json`
+- Secret: the value of `GitHub:WebhookSecret` app setting
+- Events: select "Pull requests" only

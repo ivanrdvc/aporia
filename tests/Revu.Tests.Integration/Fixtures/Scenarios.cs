@@ -4,9 +4,11 @@ namespace Revu.Tests.Integration.Fixtures;
 
 internal static class Scenarios
 {
+    // --- ADO scenarios (ivanrndvc-sc repo) ---
+
     // 10 files, single-agent. Also used as the eval baseline.
     public static ReviewRequest SingleAgentBaseline =>
-        AdoThreadHelper.PrRequest(11, "refs/heads/feature/order-discounts");
+        AdoRequest(11, "refs/heads/feature/order-discounts");
 
     // 15 files across 4 services, multi-agent.
     //   Easy (visible in diff):
@@ -19,11 +21,11 @@ internal static class Scenarios
     //   - Inconsistent handler: OrderTrackingUpdatedHandler uses manual HttpClient, not retriever/sender
     //   - IDOR: UpdateTrackingCommandHandler doesn't verify caller owns the order
     public static ReviewRequest MultiAgentCrossService =>
-        AdoThreadHelper.PrRequest(12, "refs/heads/feature/order-tracking-notifications");
+        AdoRequest(12, "refs/heads/feature/order-tracking-notifications");
 
     // 2 iterations: iteration 1 has two bugs, iteration 2 fixes one.
     public static ReviewRequest IncrementalTest =>
-        AdoThreadHelper.PrRequest(8, "refs/heads/feature/incremental-test");
+        AdoRequest(8, "refs/heads/feature/incremental-test");
 
     // Self-review: Revu reviews its own code on the revu-ado mirror repo.
     public static ReviewRequest SelfReview => new(
@@ -33,6 +35,29 @@ internal static class Scenarios
         RepositoryName: "revu-ado",
         PullRequestId: 18,
         SourceBranch: "refs/heads/feat/code-graph",
+        TargetBranch: "refs/heads/main",
+        Organization: "ivanradovic");
+
+    // --- GitHub scenarios (ivanrdvc/eShop fork) ---
+
+    // Same 15 files / same planted bugs as ADO MultiAgentCrossService (PR 12).
+    public static ReviewRequest GitHubMultiAgentCrossService => new(
+        Provider: GitProvider.GitHub,
+        Project: "",
+        RepositoryId: "ivanrdvc/eShop",
+        RepositoryName: "eShop",
+        PullRequestId: 1,
+        SourceBranch: "refs/heads/feature/order-tracking-notifications",
+        TargetBranch: "refs/heads/main",
+        Organization: "ivanrdvc");
+
+    private static ReviewRequest AdoRequest(int prId, string sourceBranch) => new(
+        Provider: GitProvider.Ado,
+        Project: "ivanrndvc-sc",
+        RepositoryId: "068b4389-3bae-438c-a0a7-08619db2b998",
+        RepositoryName: "ivanrndvc-sc",
+        PullRequestId: prId,
+        SourceBranch: sourceBranch,
         TargetBranch: "refs/heads/main",
         Organization: "ivanradovic");
 }

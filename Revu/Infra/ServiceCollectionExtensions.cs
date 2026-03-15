@@ -1,17 +1,9 @@
-using System.Net.Http.Headers;
-using System.Text;
-
 using Microsoft.Agents.AI;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using Microsoft.TeamFoundation.SourceControl.WebApi;
-using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Services.WebApi;
 
 using Revu.CodeGraph;
-using Revu.Git;
 using Revu.Infra.Cosmos;
 
 namespace Revu.Infra;
@@ -56,42 +48,6 @@ public static class ServiceCollectionExtensions
                         : Guid.NewGuid().ToString("N")),
                 ownsClient: false)
             { MessageTtlSeconds = (int)TimeSpan.FromDays(180).TotalSeconds });
-    }
-
-    public static void AddAdoClient(this IServiceCollection services)
-    {
-        services.AddOptions<AdoOptions>().BindConfiguration(AdoOptions.SectionName).ValidateDataAnnotations().ValidateOnStart();
-
-        services.AddSingleton<IReadOnlyDictionary<string, GitHttpClient>>(sp =>
-        {
-            var orgs = sp.GetRequiredService<IOptions<AdoOptions>>().Value.Organizations;
-            return orgs.ToDictionary(
-                kvp => kvp.Key,
-                kvp =>
-                {
-                    var connection = new VssConnection(
-                        new Uri($"https://dev.azure.com/{kvp.Value.Organization}"),
-                        new VssBasicCredential(string.Empty, kvp.Value.PersonalAccessToken));
-                    return connection.GetClient<GitHttpClient>();
-                });
-        });
-
-        services.AddSingleton<IReadOnlyDictionary<string, HttpClient>>(sp =>
-        {
-            var orgs = sp.GetRequiredService<IOptions<AdoOptions>>().Value.Organizations;
-            return orgs.ToDictionary(
-                kvp => kvp.Key,
-                kvp =>
-                {
-                    var client = new HttpClient
-                    {
-                        BaseAddress = new Uri($"https://almsearch.dev.azure.com/{kvp.Value.Organization}/")
-                    };
-                    var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{kvp.Value.PersonalAccessToken}"));
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", creds);
-                    return client;
-                });
-        });
     }
 
     private static void AddCodeGraph(this IServiceCollection services)

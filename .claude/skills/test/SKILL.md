@@ -1,19 +1,28 @@
 ---
 name: test
-description: "Run Revu tests: /test, /test session, /test run, /test cleanup"
+description: "Run Revu integration tests: /test [profile | session]"
 user-invocable: true
 disable-model-invocation: true
-argument-hint: "[session | run | cleanup]"
+argument-hint: "[profile-hint | session]"
 ---
 
 ## Argument routing
 
 | Command | What it does |
 |---|---|
-| `/test` | Run `ReviewTests` against real ADO + LLM, then analyze the session |
-| `/test session [session-dir]` | Analyze latest (or specified) session — tool use performance report |
-| `/test run` | Create branch + PR in test repo, start server, fire webhook, check results |
-| `/test cleanup` | Delete all comments on the active test PR |
+| `/test` | Use default profile (`TestProfile` in JSON), create fresh PR, run pipeline, verify, close PR |
+| `/test <hint>` | Fuzzy-match a profile name from `TestProfiles`, then run. E.g. `/test ado`, `/test eshop`, `/test gh` |
+| `/test session [session-dir]` | Analyze latest (or specified) session |
+
+### Profile resolution
+
+1. Read `appsettings.test.json` and get the keys from `TestProfiles`.
+2. If no argument (bare `/test`), use the `TestProfile` value from JSON.
+3. If argument given, find all profile names containing the hint (case-insensitive).
+   - Exactly one match → use it.
+   - Multiple matches → list them and ask the user which one.
+   - Zero matches → tell the user no profile matched and list available ones.
+4. The matched profile has `Provider` inside it — use that to pick the right procedure (GitHub or ADO).
 
 ---
 
@@ -28,139 +37,167 @@ This skill is designed for repeated runs. **Minimize what enters Claude Code con
 
 ---
 
-## Test repo
+## Config file
 
-Configured in `tests/Revu.Tests.Integration/appsettings.test.json` under `TestRepo`.
-Set your provider, project, repo ID, and repo name there.
-
-## Secrets
-
-All in **user-secrets** (see `UserSecretsId` in `Revu.csproj`):
-`AI:OpenAI:ApiKey`, `AzureDevOps:PersonalAccessToken`, `Cosmos:ConnectionString`.
-
----
-
-## `/test`
-
-Run the review pipeline against a real PR. The target PR is configured in
-`tests/Revu.Tests.Integration/appsettings.test.json` under `TestTarget`:
+`tests/Revu.Tests.Integration/appsettings.test.json` — profiles live under `TestProfiles`.
+`TestProfile` is the default. `TEST_PROFILE` env var overrides it at runtime.
 
 ```json
-"TestTarget": {
-  "PrId": 12,
-  "Branch": "refs/heads/feature/order-tracking-notifications"
+"TestProfile": "ado-sc",
+"TestProfiles": {
+  "ado-sc": { "Provider": "Ado", "Organization": "ivanradovic", ... },
+  "gh-eshop": { "Provider": "GitHub", "Organization": "ivanrdvc", ... }
 }
 ```
 
-Change `PrId` and `Branch` to target a different PR.
+## Secrets
 
-### Procedure — follow exactly, no improvisation
+All in **user-secrets** (see `UserSecretsId` in each `.csproj`):
+- `AI:OpenAI:ApiKey`, `Cosmos:ConnectionString`
+- ADO: `AzureDevOps:Organizations:<org>:PersonalAccessToken`
+- GitHub: `GitHub:Organizations:<key>:Owner`, `GitHub:Organizations:<key>:Token`
 
-Run these three commands in order. This is the complete procedure whether the test passes or fails.
+## Source branches
 
-**Step 1** — run the test:
+These are the permanent branches with planted bugs. Each test run creates a temp copy.
+
+| Provider | Branch | Description |
+|---|---|---|
+| **ADO** | `refs/heads/feature/order-tracking-notifications` | 15 files, planted bugs across 4 services |
+| **GitHub** | `refs/heads/feature/order-tracking-notifications` | Same changes as ADO, on `ivanrdvc/eShop` fork |
+
+---
+
+## Procedure — follow exactly, no improvisation
+
+### Step 0 — Resolve profile
+
+Read `appsettings.test.json`. Follow the profile resolution rules above to determine the profile
+name. Read `Provider`, `Organization`, `Project`, `RepositoryId`, `RepositoryName` from the
+matched profile. Then follow the matching provider procedure below.
+
+---
+
+## GitHub procedure
+
+### Step 1 — Create temp branch + PR
+
+Use the profile's `Organization` and `RepositoryId` (format: `owner/repo`).
+
 ```bash
-dotnet test tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj \
+# Get SHA of source branch
+sha=$(gh api repos/{owner}/{repo}/git/ref/heads/feature/order-tracking-notifications --jq '.object.sha')
+
+# Create temp branch
+branch="revu-test-$(date +%s)"
+gh api repos/{owner}/{repo}/git/refs -f ref="refs/heads/$branch" -f sha="$sha"
+
+# Create PR and capture number
+pr_number=$(gh pr create --repo {owner}/{repo} --head "$branch" --base main \
+  --title "revu-test-$branch" --body "Automated test PR" | grep -o '[0-9]*$')
+
+echo "Created PR #$pr_number on branch $branch"
+```
+
+### Step 2 — Run the test
+
+```bash
+TEST_PROFILE={profile_name} TestTarget__PrId=$pr_number TestTarget__Branch="refs/heads/$branch" \
+  dotnet test tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj \
   --filter "Review_FullPipeline_PostsFindings" \
   --logger "console;verbosity=detailed" > /tmp/revu-test.log 2>&1
 ```
 
-**Step 2** — show the tail:
+### Step 3 — Show the tail
+
 ```bash
 tail -15 /tmp/revu-test.log
 ```
 
-**Step 3** — run verify:
+### Step 4 — Run verify
+
 ```bash
 python3 .claude/skills/test/scripts/verify.py --log /tmp/revu-test.log
 ```
 
-Add `--otel` to pull the log timeline from OpenObserve (requires Docker running):
-```bash
-python3 .claude/skills/test/scripts/verify.py --log /tmp/revu-test.log --otel
-```
+### Step 5 — Close PR + delete branch
 
-The `--otel` section appends a timestamped log timeline for each trace — exploration
-dispatches, completions, warnings, and errors — filtered for signal (HTTP retry noise
-suppressed). Useful when diagnosing failures or unexpected behavior. OpenObserve must be
-running locally (`docker compose up`); if unavailable the section is skipped gracefully.
+```bash
+gh pr close $pr_number --repo {owner}/{repo} --delete-branch
+```
 
 Print the verify output to the user — that IS the full report. Do not add your own summary
-afterwards. The verify output contains everything: findings, recall, token usage, model name,
-tool calls, wall clock, session count, verdict, and parse failure detection. Repeating a subset
-of this loses information. **Done. Stop here.**
+afterwards. **Done. Stop here.**
 
-On failure, the verify script extracts what it can from a partial run. If the user asks you to
+On failure, still close the PR (step 5), then show the verify output. If the user asks you to
 investigate further, then dig in.
-
-### Verify output structure
-
-The verify script produces these sections in order:
-
-```
-============================================================
-  Session analysis: run-YYYYMMDD-HHMMSS
-  Sessions: <N>
-  Path: <session directory>
-============================================================
-
-## Summary
-
-  Findings:  <found> / <cap>  [! hit cap]     ← how many findings vs maxComments
-  Reviewer:  <N> calls, <N> LLM turns, <N> explores
-  Total:     <N> tool calls  |  {tool: count}  ← aggregate tool use across all agents
-  Verdict:   CLEAN | <issues>                  ← tool use problems (dupes, 404s, empty searches)
-
-## Reviewer                                     ← per-session-file breakdown
-
-  --- 01.json ---
-    Tool calls: <N>  |  LLM turns: <N>
-    Tools: {tool: count}
-    Workflow: Optimal | <issues>
-
-  --- 02.json ---  (explorers, if any)
-    ...
-
-## Token Usage                                  ← per-agent, per-model breakdown
-
-  trace: <trace-id>
-    Reviewer       (<model>):  <in> in / <out> out  (<N> calls, peak: <N> in)
-    Explorer       (<model>):  <in> in / <out> out  (<N> calls, peak: <N> in)
-    Total                      <in> in / <out> out  (<N> calls)
-
-## Finding Coverage                             ← eval against expected findings
-
-  Recall: <hit>/<total> (<pct>%)  [required: n/n, optional: n/n]
-
-  Required:
-    [+] <label>  (<file>)                       ← matched
-    [MISS] <label>  (<file>)                    ← not found — regression signal
-
-  Optional:
-    [+] <label>  (<file>)
-    [-] <label>  (<file>)                       ← not found — acceptable
-
-  Extra findings (<N>):                         ← findings not in expected set
-    ? <file> — <truncated description>
-```
-
-**Key signals to watch:**
-- `Verdict: CLEAN` = no tool use issues. Anything else = investigate.
-- `[MISS]` on a required finding = regression — the reviewer should have caught this.
-- `! hit cap` = findings were capped; there may be more the reviewer wanted to report.
-- `Recall` dropping between runs = prompt or strategy regression.
-- `0 tool calls` = reviewer answered from diff alone (fast but may miss cross-file issues).
-- `Extra findings` = findings not in the eval set. Could be valid or noise.
 
 ### Verbose variant
 
-For verbose output (full threads + findings), use `--filter "Verbose"` instead. Still pipe to
-file and tail. Same three-step procedure.
+For verbose output (full threads + findings), use `--filter "Verbose"` instead in step 2.
 
-### Scenarios
+---
 
-Named scenarios are in `Fixtures/Scenarios.cs` — that's the single source of truth for PR IDs
-and branches.
+## ADO procedure
+
+### Step 1 — Create temp branch + PR
+
+Use the profile's `Organization`, `Project`, and `RepositoryId`.
+
+```bash
+org="https://dev.azure.com/{organization}"
+project="{project}"
+repo_id="{repositoryId}"
+source_branch="feature/order-tracking-notifications"
+
+# Get SHA of source branch
+sha=$(az repos ref list --repository "$repo_id" --org "$org" --project "$project" \
+  --query "[?name=='refs/heads/$source_branch'].objectId" -o tsv)
+
+# Create temp branch
+branch="revu-test-$(date +%s)"
+az repos ref create --name "refs/heads/$branch" --object-id "$sha" \
+  --repository "$repo_id" --org "$org" --project "$project"
+
+# Create PR and capture ID
+pr_id=$(az repos pr create --repository "$repo_id" --source-branch "$branch" \
+  --target-branch main --title "revu-test-$branch" \
+  --org "$org" --project "$project" --query 'pullRequestId' -o tsv)
+
+echo "Created PR #$pr_id on branch $branch"
+```
+
+### Step 2 — Run the test
+
+```bash
+TEST_PROFILE={profile_name} TestTarget__PrId=$pr_id TestTarget__Branch="refs/heads/$branch" \
+  dotnet test tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj \
+  --filter "Review_FullPipeline_PostsFindings" \
+  --logger "console;verbosity=detailed" > /tmp/revu-test.log 2>&1
+```
+
+### Step 3 — Show the tail
+
+```bash
+tail -15 /tmp/revu-test.log
+```
+
+### Step 4 — Run verify
+
+```bash
+python3 .claude/skills/test/scripts/verify.py --log /tmp/revu-test.log
+```
+
+### Step 5 — Abandon PR + delete branch
+
+```bash
+az repos pr update --id $pr_id --status abandoned --org "$org"
+az repos ref delete --name "refs/heads/$branch" --object-id "$sha" \
+  --repository "$repo_id" --org "$org" --project "$project"
+```
+
+Print the verify output to the user — that IS the full report. Do not add your own summary
+afterwards. **Done. Stop here.**
 
 ---
 
@@ -219,106 +256,61 @@ Explorers finish first. The reviewer is always the last file — if missing, the
 
 ---
 
-## `/test run`
+## Verify output structure
 
-End-to-end: create a test PR, start the server, fire the webhook, check results.
+The verify script produces these sections in order:
 
-### 1. Create branch + PR
+```
+============================================================
+  Session analysis: run-YYYYMMDD-HHMMSS
+  Sessions: <N>
+  Path: <session directory>
+============================================================
 
-Ask the user for a branch name, or generate one (e.g. `test/run-YYYYMMDD`).
+## Summary
 
-```bash
-cd <test-repo-path>
-git checkout main && git pull
-git checkout -b <branch-name>
+  Findings:  <found> / <cap>  [! hit cap]     ← how many findings vs maxComments
+  Reviewer:  <N> calls, <N> LLM turns, <N> explores
+  Total:     <N> tool calls  |  {tool: count}  ← aggregate tool use across all agents
+  Verdict:   CLEAN | <issues>                  ← tool use problems (dupes, 404s, empty searches)
+
+## Reviewer                                     ← per-session-file breakdown
+
+  --- 01.json ---
+    Tool calls: <N>  |  LLM turns: <N>
+    Tools: {tool: count}
+    Workflow: Optimal | <issues>
+
+  --- 02.json ---  (explorers, if any)
+    ...
+
+## Token Usage                                  ← per-agent, per-model breakdown
+
+  trace: <trace-id>
+    Reviewer       (<model>):  <in> in / <out> out  (<N> calls, peak: <N> in)
+    Explorer       (<model>):  <in> in / <out> out  (<N> calls, peak: <N> in)
+    Total                      <in> in / <out> out  (<N> calls)
+
+## Finding Coverage                             ← eval against expected findings
+
+  Recall: <hit>/<total> (<pct>%)  [required: n/n, optional: n/n]
+
+  Required:
+    [+] <label>  (<file>)                       ← matched
+    [MISS] <label>  (<file>)                    ← not found — regression signal
+
+  Optional:
+    [+] <label>  (<file>)
+    [-] <label>  (<file>)                       ← not found — acceptable
+
+  Extra findings (<N>):                         ← findings not in expected set
+    ? <file> — <truncated description>
 ```
 
-Make changes (ask user or generate a test file), commit, push:
-```bash
-git add . && git commit -m "test changes" && git push -u origin <branch-name>
-```
-
-Create PR using the appropriate CLI for your provider. Examples:
-
-**ADO:**
-```bash
-az repos pr create \
-  --org https://dev.azure.com/<org> \
-  --project <project> \
-  --repository <repo> \
-  --source-branch <branch-name> \
-  --target-branch main \
-  --title "Test: <branch-name>"
-```
-
-**GitHub:**
-```bash
-gh pr create --title "Test: <branch-name>" --body "test run"
-```
-
-Note the `pullRequestId`.
-
-### 2. Start server
-
-```bash
-dotnet run --project Revu/Revu.csproj
-```
-
-Listens on `http://localhost:5018`.
-
-### 3. Fire webhook
-
-**Important:** If a webhook subscription is active, the provider will auto-fire — skip the manual curl.
-
-Read the `TestRepo` section from `appsettings.test.json` for the repo coordinates, then POST
-a webhook payload to the appropriate provider endpoint. Example for ADO:
-
-```bash
-curl -s -X POST http://localhost:5018/webhook/ado \
-  -H "Content-Type: application/json" \
-  -d '{
-  "eventType": "git.pullrequest.created",
-  "resource": {
-    "repository": {
-      "id": "<repo-id>",
-      "name": "<repo-name>",
-      "project": {
-        "id": "<project-id>",
-        "name": "<project-name>"
-      }
-    },
-    "pullRequestId": <PRID>,
-    "status": "active",
-    "sourceRefName": "refs/heads/<branch-name>",
-    "targetRefName": "refs/heads/main",
-    "isDraft": false
-  }
-}'
-```
-
-### 4. Check results
-
-Query PR threads using the appropriate CLI for your provider. Example for ADO:
-
-```bash
-az devops invoke \
-  --org https://dev.azure.com/<org> \
-  --area git \
-  --resource pullRequestThreads \
-  --route-parameters project=<project> repositoryId=<repo-id> pullRequestId=<PRID> \
-  --api-version 7.1
-```
-
-### 5. Clean up
-
-Stop the background server when done.
-
----
-
-## `/test cleanup`
-
-```bash
-dotnet test tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj \
-  --filter "DeleteAllComments" \
-  --logger "console;verbosity=detailed"
-```
+**Key signals to watch:**
+- `Verdict: CLEAN` = no tool use issues. Anything else = investigate.
+- `[MISS]` on a required finding = regression — the reviewer should have caught this.
+- `! hit cap` = findings were capped; there may be more the reviewer wanted to report.
+- `Recall` dropping between runs = prompt or strategy regression.
+- `0 tool calls` = reviewer answered from diff alone (fast but may miss cross-file issues).
+- `Extra findings` = findings not in the eval set. Could be valid or noise.

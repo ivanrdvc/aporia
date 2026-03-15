@@ -1,4 +1,57 @@
 {
+  "gh:ivanrdvc/eShop:1": {
+    "description": "Multi-agent cross-service — GitHub (ivanrdvc/eShop PR 1, same bugs as ADO PR 12)",
+    "expectedFindings": [
+      {
+        "file": "/src/Catalog.API/Apis/ShippingRatesApi.cs",
+        "keywords": ["connection", "credential", "database", "cross-service", "microservice"],
+        "description": "Cross-service DB: Catalog queries Ordering database",
+        "required": true
+      },
+      {
+        "file": "/src/OrderProcessor/Services/GracePeriodManagerService.cs",
+        "keywords": ["connection", "credential", "database", "cross-service", "catalog"],
+        "description": "Cross-service DB: OrderProcessor queries Catalog database",
+        "required": true
+      },
+      {
+        "file": "/src/Ordering.API/Services/ShippingNotificationService.cs",
+        "keywords": ["pii", "sensitive", "email", "address", "personal", "log"],
+        "description": "PII logging: customer email, name, address",
+        "required": true
+      },
+      {
+        "file": "/src/Ordering.API/Application/Commands/UpdateTrackingCommand.cs",
+        "keywords": ["authorization", "idor", "ownership", "verify", "caller"],
+        "description": "IDOR: no ownership check before updating tracking",
+        "required": true
+      },
+      {
+        "file": "/src/OrderProcessor/Services/GracePeriodManagerService.cs",
+        "keywords": ["availability", "any", "all", "logic"],
+        "description": "Logic bug: ANY vs ALL product availability check",
+        "required": false
+      },
+      {
+        "file": "/src/Webhooks.API/Model/WebhookType.cs",
+        "keywords": ["ordinal", "enum", "shift", "value"],
+        "description": "Enum ordinal shift breaks existing values",
+        "required": false
+      },
+      {
+        "file": "/src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs",
+        "keywords": ["guard", "status", "tracking", "validation"],
+        "description": "DDD violation: SetTrackingNumber missing status guard",
+        "required": false
+      },
+      {
+        "file": "/src/Webhooks.API/IntegrationEvents/OrderTrackingUpdatedIntegrationEventHandler.cs",
+        "keywords": ["httpclient", "retriever", "sender", "inconsistent", "pattern"],
+        "description": "Inconsistent: manual HttpClient instead of retriever/sender",
+        "required": false
+      }
+    ]
+  },
   "12": {
     "description": "Multi-agent cross-service (PR 12)",
     "expectedFindings": [

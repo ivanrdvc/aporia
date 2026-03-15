@@ -1,9 +1,11 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra;
@@ -16,7 +18,7 @@ namespace Revu.Review;
 public class CoreStrategy(
     [FromKeyedServices(ModelKey.Reasoning)] IChatClient reviewerClient,
     [FromKeyedServices(ModelKey.Default)] IChatClient explorerClient,
-    IGitConnector git,
+    IServiceProvider sp,
     ChatHistoryProvider sessionProvider,
     FileAgentSkillsProvider skillsProvider,
     PrContextProvider prContextProvider,
@@ -29,6 +31,7 @@ public class CoreStrategy(
 
     public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
     {
+        var git = sp.GetRequiredKeyedService<IGitConnector>(req.Provider);
         var prompt = BuildReviewPrompt(diff);
         var tools = new ReviewerTools(git, req, diff, codeGraph);
         var exploreTool = GuardedExploreTool.Create(explorerClient, tools, sessionProvider, logger);
@@ -132,7 +135,7 @@ public class CoreStrategy(
                     sb.AppendLine($"### {file.Path}");
                     if (file.Kind is ChangeKind.Rename && file.OldPath is not null)
                         sb.AppendLine($"(renamed from `{file.OldPath}`)");
-                    sb.AppendLine(file.Patch);
+                    sb.AppendLine(AnnotatePatchWithLineNumbers(file.Patch!));
                     sb.AppendLine($"\n<full-source>\n{file.Content}\n</full-source>");
                     break;
 
@@ -140,7 +143,7 @@ public class CoreStrategy(
                     sb.AppendLine($"### {file.Path}");
                     if (file.Kind is ChangeKind.Rename && file.OldPath is not null)
                         sb.AppendLine($"(renamed from `{file.OldPath}`)");
-                    sb.AppendLine(file.Patch);
+                    sb.AppendLine(AnnotatePatchWithLineNumbers(file.Patch!));
                     break;
 
                 case "rename":
@@ -150,6 +153,47 @@ public class CoreStrategy(
                 case "delete":
                     sb.AppendLine($"- {file.Path} — deleted");
                     break;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static readonly Regex HunkHeaderRegex = new(@"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@");
+
+    /// <summary>
+    /// Annotate each diff line with its new-file line number so the model doesn't have to count
+    /// from hunk headers. Deleted lines get no number. Context and added lines get their position.
+    /// </summary>
+    internal static string AnnotatePatchWithLineNumbers(string patch)
+    {
+        var sb = new StringBuilder();
+        var lineNum = 0;
+
+        foreach (var line in patch.Split('\n'))
+        {
+            var hunkMatch = HunkHeaderRegex.Match(line);
+            if (hunkMatch.Success)
+            {
+                lineNum = int.Parse(hunkMatch.Groups[1].Value);
+                sb.AppendLine(line);
+            }
+            else if (line.StartsWith('-'))
+            {
+                sb.AppendLine($"      {line}");
+            }
+            else if (line.StartsWith(' ') || line.StartsWith('+'))
+            {
+                sb.AppendLine($"{lineNum,5} {line}");
+                lineNum++;
+            }
+            else if (line.Length > 0)
+            {
+                sb.AppendLine($"      {line}");
+            }
+            else
+            {
+                sb.AppendLine(line);
             }
         }
 

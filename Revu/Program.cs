@@ -22,12 +22,14 @@ builder.Services.AddOptions<RevuOptions>().BindConfiguration(RevuOptions.Section
 builder.AddOpenTelemetry();
 builder.Services.AddChatClients(builder.Configuration);
 builder.Services.AddCosmos(builder.Configuration);
-builder.Services.AddAdoClient();
+builder.Services.AddOptions<AdoOptions>().BindConfiguration(AdoOptions.SectionName).ValidateDataAnnotations();
+builder.Services.AddOptions<GitHubOptions>().BindConfiguration(GitHubOptions.SectionName).ValidateDataAnnotations();
 builder.Services.AddSingleton(new FileAgentSkillsProvider(skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")));
 builder.Services.AddSingleton<PrContextProvider>();
 
 // Domain
-builder.Services.AddSingleton<IGitConnector, AdoConnector>();
+builder.Services.AddKeyedSingleton<IGitConnector, AdoConnector>(GitProvider.Ado);
+builder.Services.AddKeyedSingleton<IGitConnector, GitHubConnector>(GitProvider.GitHub);
 builder.Services.AddKeyedScoped<IReviewStrategy, CoreStrategy>(ReviewStrategy.Core);
 builder.Services.AddScoped<Reviewer>(sp => new Reviewer(
     sp.GetRequiredKeyedService<IReviewStrategy>,
