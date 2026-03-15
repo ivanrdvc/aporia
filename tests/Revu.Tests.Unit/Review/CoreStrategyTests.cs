@@ -52,6 +52,37 @@ public class CoreStrategyTests
         Assert.Equal("LGTM", result.Summary);
     }
 
+    [Fact]
+    public void AnnotatePatchWithLineNumbers_AddsCorrectLineNumbers()
+    {
+        var patch = "@@ -91,5 +91,37 @@ FROM ordering.orders\n" +
+                    " \n" +
+                    "             return [];\n" +
+                    "         }\n" +
+                    "+\n" +
+                    "+        private async Task<bool> Check(int id)\n" +
+                    "+        {\n" +
+                    "+            var cred = \"postgres\";";
+
+        var result = CoreStrategy.AnnotatePatchWithLineNumbers(patch);
+
+        Assert.Contains("   91  ", result);
+        Assert.Contains("   94 +", result);
+        Assert.Contains("   97 +            var cred", result);
+    }
+
+    [Fact]
+    public void AnnotatePatchWithLineNumbers_DeletedLinesGetNoNumber()
+    {
+        var patch = "@@ -1,3 +1,3 @@\n context\n-old line\n+new line";
+
+        var result = CoreStrategy.AnnotatePatchWithLineNumbers(patch);
+
+        Assert.Contains("    1  context", result);
+        Assert.Contains("      -old line", result);
+        Assert.Contains("    2 +new line", result);
+    }
+
     private CoreStrategy CreateSut(string reviewerResponse)
     {
         var reviewer = Substitute.For<IChatClient>();

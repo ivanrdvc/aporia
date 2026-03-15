@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -133,7 +134,7 @@ public class CoreStrategy(
                     sb.AppendLine($"### {file.Path}");
                     if (file.Kind is ChangeKind.Rename && file.OldPath is not null)
                         sb.AppendLine($"(renamed from `{file.OldPath}`)");
-                    sb.AppendLine(file.Patch);
+                    sb.AppendLine(AnnotatePatchWithLineNumbers(file.Patch!));
                     sb.AppendLine($"\n<full-source>\n{file.Content}\n</full-source>");
                     break;
 
@@ -141,7 +142,7 @@ public class CoreStrategy(
                     sb.AppendLine($"### {file.Path}");
                     if (file.Kind is ChangeKind.Rename && file.OldPath is not null)
                         sb.AppendLine($"(renamed from `{file.OldPath}`)");
-                    sb.AppendLine(file.Patch);
+                    sb.AppendLine(AnnotatePatchWithLineNumbers(file.Patch!));
                     break;
 
                 case "rename":
@@ -151,6 +152,43 @@ public class CoreStrategy(
                 case "delete":
                     sb.AppendLine($"- {file.Path} — deleted");
                     break;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static readonly Regex HunkHeaderRegex = new(@"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@");
+
+    /// <summary>
+    /// Annotate each diff line with its new-file line number so the model doesn't have to count
+    /// from hunk headers. Deleted lines get no number. Context and added lines get their position.
+    /// </summary>
+    internal static string AnnotatePatchWithLineNumbers(string patch)
+    {
+        var sb = new StringBuilder();
+        var lineNum = 0;
+
+        foreach (var line in patch.Split('\n'))
+        {
+            var hunkMatch = HunkHeaderRegex.Match(line);
+            if (hunkMatch.Success)
+            {
+                lineNum = int.Parse(hunkMatch.Groups[1].Value);
+                sb.AppendLine(line);
+            }
+            else if (line.StartsWith('-'))
+            {
+                sb.AppendLine($"      {line}");
+            }
+            else if (line.Length > 0)
+            {
+                sb.AppendLine($"{lineNum,5} {line}");
+                lineNum++;
+            }
+            else
+            {
+                sb.AppendLine(line);
             }
         }
 
