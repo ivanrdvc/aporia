@@ -33,7 +33,7 @@
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.7" />
     <!-- OpenTelemetry -->
     <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="*" />
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="*" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="*" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="*" />
