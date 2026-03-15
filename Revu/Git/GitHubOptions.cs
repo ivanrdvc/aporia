@@ -14,6 +14,5 @@ public class GitHubOptions
 
 public class GitHubOrgConfig
 {
-    [Required] public string Owner { get; init; } = string.Empty;
     [Required] public string Token { get; init; } = string.Empty;
 }

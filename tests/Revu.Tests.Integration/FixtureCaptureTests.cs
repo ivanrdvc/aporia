@@ -26,7 +26,7 @@ public class FixtureCaptureTests(
     [Fact]
     public async Task Capture_CleanPrNoFindings()
     {
-        var req = AdoThreadHelper.PrRequest(13, "refs/heads/feature/order-status-endpoint");
+        var req = TestHelper.BuildRequest(13, "refs/heads/feature/order-status-endpoint");
 
         // Reset iteration state so GetDiff returns the full diff
         await ResetReviewState(req);

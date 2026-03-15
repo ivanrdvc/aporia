@@ -14,7 +14,7 @@ public class CleanupTests(
     public async Task DeleteAllComments()
     {
         await ResetReviewState(Target);
-        await GitClient.CleanThreads(Target);
+        await TestHelper.CleanComments(Target);
         Output.WriteLine($"Cleanup done on PR #{Target.PullRequestId}.");
     }
 
@@ -22,7 +22,7 @@ public class CleanupTests(
     public async Task DeleteAllComments_SelfReview()
     {
         await ResetReviewState(Scenarios.SelfReview);
-        await GitClient.CleanThreads(Scenarios.SelfReview);
+        await TestHelper.CleanComments(Scenarios.SelfReview);
         Output.WriteLine($"Cleanup done on PR #{Scenarios.SelfReview.PullRequestId}.");
     }
 }

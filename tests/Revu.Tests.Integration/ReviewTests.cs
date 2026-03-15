@@ -18,18 +18,18 @@ public class ReviewTests(
         var config = Services.GetRequiredService<IConfiguration>();
         var prId = config.GetValue<int>("TestTarget:PrId");
         var branch = config.GetValue<string>("TestTarget:Branch")!;
-        return AdoThreadHelper.PrRequest(prId, branch);
+        return TestHelper.BuildRequest(prId, branch);
     }
 
     [Fact]
     public async Task Review_FullPipeline_PostsFindings()
     {
         await ResetReviewState(TestEvent);
-        await GitClient.CleanThreads(TestEvent);
+        await TestHelper.CleanComments(TestEvent);
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var result = await Reviewer.Review(TestEvent, diff, config);
+        var result = await Reviewer.Review(TestEvent, diff, config, Git);
 
         await Git.PostReview(TestEvent, diff, result);
 
@@ -43,11 +43,11 @@ public class ReviewTests(
     public async Task Review_FullPipeline_Verbose()
     {
         await ResetReviewState(TestEvent);
-        await GitClient.CleanThreads(TestEvent);
+        await TestHelper.CleanComments(TestEvent);
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var result = await Reviewer.Review(TestEvent, diff, config);
+        var result = await Reviewer.Review(TestEvent, diff, config, Git);
         await Git.PostReview(TestEvent, diff, result);
 
         Output.WriteLine($"Findings: {result.Findings.Count}  (maxComments: {config.Review.MaxComments})\n");
@@ -66,11 +66,11 @@ public class ReviewTests(
     {
         var target = Scenarios.SelfReview;
         await ResetReviewState(target);
-        await GitClient.CleanThreads(target);
+        await TestHelper.CleanComments(target);
 
         var config = await Git.GetConfig(target);
         var diff = await Git.GetDiff(target, config);
-        var result = await Reviewer.Review(target, diff, config);
+        var result = await Reviewer.Review(target, diff, config, Git);
 
         await Git.PostReview(target, diff, result);
 

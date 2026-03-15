@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.TeamFoundation.SourceControl.WebApi;
 
 using Revu.Git;
 using Revu.Infra;
@@ -42,13 +43,43 @@ public class AppFixture : IAsyncLifetime
         builder.AddOpenTelemetry();
         builder.Services.AddChatClients(builder.Configuration);
         builder.Services.AddCosmos(builder.Configuration);
-        builder.Services.AddAdoClient();
+
+        // Provider-specific registration
+        var provider = builder.Configuration
+            .GetSection(TestRepoOptions.SectionName)
+            .GetValue<GitProvider>(nameof(TestRepoOptions.Provider));
+
+        switch (provider)
+        {
+            case GitProvider.Ado:
+                builder.Services.AddOptions<AdoOptions>().BindConfiguration(AdoOptions.SectionName).ValidateDataAnnotations();
+                builder.Services.AddSingleton<IGitConnector, AdoConnector>();
+                builder.Services.AddSingleton<ITestHelper>(sp =>
+                {
+                    var testOpts = sp.GetRequiredService<IOptions<TestRepoOptions>>().Value;
+                    var connector = (AdoConnector)sp.GetRequiredService<IGitConnector>();
+                    var adoOrg = sp.GetRequiredService<IOptions<AdoOptions>>().Value.Organizations.Values.First();
+                    return new AdoTestHelper(testOpts, connector._gitClients.GetOrAdd(adoOrg.Organization, _ =>
+                    {
+                        var connection = new Microsoft.VisualStudio.Services.WebApi.VssConnection(
+                            new Uri($"https://dev.azure.com/{adoOrg.Organization}"),
+                            new Microsoft.VisualStudio.Services.Common.VssBasicCredential(string.Empty, adoOrg.PersonalAccessToken));
+                        return connection.GetClient<GitHttpClient>();
+                    }));
+                });
+                break;
+
+            case GitProvider.GitHub:
+                builder.Services.AddOptions<GitHubOptions>().BindConfiguration(GitHubOptions.SectionName).ValidateDataAnnotations();
+                builder.Services.AddSingleton<IGitConnector, GitHubConnector>();
+                builder.Services.AddSingleton<ITestHelper, GitHubTestHelper>();
+                break;
+        }
 
         // Domain
         builder.Services.AddSingleton<PrContextProvider>();
         builder.Services.AddSingleton(new FileAgentSkillsProvider(
             skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")));
-        builder.Services.AddSingleton<IGitConnector, AdoConnector>();
         builder.Services.AddKeyedScoped<IReviewStrategy, CoreStrategy>(ReviewStrategy.Core);
         builder.Services.AddScoped<Reviewer>(sp => new Reviewer(
             sp.GetRequiredKeyedService<IReviewStrategy>,
@@ -61,8 +92,6 @@ public class AppFixture : IAsyncLifetime
         builder.Services.AddSingleton<ChatHistoryProvider>(new FileSessionProvider(SessionDirectory));
 
         _host = builder.Build();
-
-        AdoThreadHelper.Initialize(_host.Services.GetRequiredService<IOptions<TestRepoOptions>>());
     }
 
     public async Task InitializeAsync() => await _host.StartAsync();
