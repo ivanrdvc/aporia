@@ -41,7 +41,7 @@
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="*" />
     <!-- Existing -->
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="20.268.0-preview" />
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.3" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.5" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.5" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.3" />
     <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-rc2" />
