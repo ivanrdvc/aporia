@@ -17,3 +17,4 @@
 - Work item integration — fetch linked work items as additional review context
 - Local repo cloning support for tool-based reviews
 - Auto-detect per-repo metadata (language version, framework) to reduce false positives
+- Feature-level config system — per-repo feature toggles on `Repository` entity (app-owner controls) and `.revu.json` `ProjectConfig` overrides (project-owner controls). Three-tier precedence: global `RevuOptions` > per-repo `Repository` > `.revu.json`. Applies to incremental reviews, code graph, chat, and future flags.
