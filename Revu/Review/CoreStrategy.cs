@@ -5,6 +5,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra;
@@ -181,10 +182,14 @@ public class CoreStrategy(
             {
                 sb.AppendLine($"      {line}");
             }
-            else if (line.Length > 0)
+            else if (line.StartsWith(' ') || line.StartsWith('+'))
             {
                 sb.AppendLine($"{lineNum,5} {line}");
                 lineNum++;
+            }
+            else if (line.Length > 0)
+            {
+                sb.AppendLine($"      {line}");
             }
             else
             {

@@ -71,8 +71,6 @@ internal class AdoTestHelper(TestRepoOptions options, GitHttpClient gitClient) :
 
 public class TestRepoOptions
 {
-    public const string SectionName = "TestRepo";
-
     [Required]
     public string Project { get; init; } = string.Empty;
 

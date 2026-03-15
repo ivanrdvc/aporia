@@ -34,7 +34,18 @@ public class AppFixture : IAsyncLifetime
         builder.Services.Configure<AIOptions>(builder.Configuration.GetSection(AIOptions.SectionName));
         builder.Services.Configure<CosmosOptions>(builder.Configuration.GetSection(CosmosOptions.SectionName));
         builder.Services.Configure<RevuOptions>(builder.Configuration.GetSection(RevuOptions.SectionName));
-        builder.Services.Configure<TestRepoOptions>(builder.Configuration.GetSection(TestRepoOptions.SectionName));
+
+        // Resolve test profile: TEST_PROFILE env var → TestProfile in JSON
+        var profileName = Environment.GetEnvironmentVariable("TEST_PROFILE")
+                          ?? builder.Configuration.GetValue<string>("TestProfile")
+                          ?? throw new InvalidOperationException("No test profile configured. Set TEST_PROFILE env var or TestProfile in appsettings.test.json.");
+
+        var profileSection = builder.Configuration.GetSection($"TestProfiles:{profileName}");
+        if (!profileSection.Exists())
+            throw new InvalidOperationException($"Test profile '{profileName}' not found in TestProfiles.");
+
+        builder.Services.Configure<TestRepoOptions>(profileSection);
+        var provider = profileSection.GetValue<GitProvider>(nameof(TestRepoOptions.Provider));
 
         // Suppress per-request HttpClient log noise (traces still captured via OTEL instrumentation)
         builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
@@ -43,11 +54,6 @@ public class AppFixture : IAsyncLifetime
         builder.AddOpenTelemetry();
         builder.Services.AddChatClients(builder.Configuration);
         builder.Services.AddCosmos(builder.Configuration);
-
-        // Provider-specific registration
-        var provider = builder.Configuration
-            .GetSection(TestRepoOptions.SectionName)
-            .GetValue<GitProvider>(nameof(TestRepoOptions.Provider));
 
         switch (provider)
         {

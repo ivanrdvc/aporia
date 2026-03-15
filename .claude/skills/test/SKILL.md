@@ -1,19 +1,28 @@
 ---
 name: test
-description: "Run Revu integration tests: /test [github | ado | session]"
+description: "Run Revu integration tests: /test [profile | session]"
 user-invocable: true
 disable-model-invocation: true
-argument-hint: "[github | ado | session]"
+argument-hint: "[profile-hint | session]"
 ---
 
 ## Argument routing
 
 | Command | What it does |
 |---|---|
-| `/test` | Create a fresh PR on the currently configured provider, run pipeline, verify, close PR |
-| `/test github` | Switch to GitHub provider, create fresh PR, run pipeline, verify, close PR |
-| `/test ado` | Switch to ADO provider, create fresh PR, run pipeline, verify, close PR |
+| `/test` | Use default profile (`TestProfile` in JSON), create fresh PR, run pipeline, verify, close PR |
+| `/test <hint>` | Fuzzy-match a profile name from `TestProfiles`, then run. E.g. `/test ado`, `/test eshop`, `/test gh` |
 | `/test session [session-dir]` | Analyze latest (or specified) session |
+
+### Profile resolution
+
+1. Read `appsettings.test.json` and get the keys from `TestProfiles`.
+2. If no argument (bare `/test`), use the `TestProfile` value from JSON.
+3. If argument given, find all profile names containing the hint (case-insensitive).
+   - Exactly one match → use it.
+   - Multiple matches → list them and ask the user which one.
+   - Zero matches → tell the user no profile matched and list available ones.
+4. The matched profile has `Provider` inside it — use that to pick the right procedure (GitHub or ADO).
 
 ---
 
@@ -30,20 +39,14 @@ This skill is designed for repeated runs. **Minimize what enters Claude Code con
 
 ## Config file
 
-`tests/Revu.Tests.Integration/appsettings.test.json` — `TestRepo` controls which provider/repo
-to target. `TestTarget` has default values but is **overridden by env vars** at runtime.
+`tests/Revu.Tests.Integration/appsettings.test.json` — profiles live under `TestProfiles`.
+`TestProfile` is the default. `TEST_PROFILE` env var overrides it at runtime.
 
 ```json
-"TestRepo": {
-  "Provider": "GitHub",
-  "Organization": "ivanrdvc",
-  "Project": "",
-  "RepositoryId": "ivanrdvc/eShop",
-  "RepositoryName": "eShop"
-},
-"TestTarget": {
-  "PrId": 1,
-  "Branch": "refs/heads/feature/order-tracking-notifications"
+"TestProfile": "ado-sc",
+"TestProfiles": {
+  "ado-sc": { "Provider": "Ado", "Organization": "ivanradovic", ... },
+  "gh-eshop": { "Provider": "GitHub", "Organization": "ivanrdvc", ... }
 }
 ```
 
@@ -53,13 +56,6 @@ All in **user-secrets** (see `UserSecretsId` in each `.csproj`):
 - `AI:OpenAI:ApiKey`, `Cosmos:ConnectionString`
 - ADO: `AzureDevOps:Organizations:<org>:PersonalAccessToken`
 - GitHub: `GitHub:Organizations:<key>:Owner`, `GitHub:Organizations:<key>:Token`
-
-## Known providers
-
-| Provider | TestRepo values |
-|---|---|
-| **ADO** | `Provider: "Ado"`, `Organization: "ivanradovic"`, `Project: "ivanrndvc-sc"`, `RepositoryId: "068b4389-3bae-438c-a0a7-08619db2b998"`, `RepositoryName: "ivanrndvc-sc"` |
-| **GitHub** | `Provider: "GitHub"`, `Organization: "ivanrdvc"`, `Project: ""`, `RepositoryId: "ivanrdvc/eShop"`, `RepositoryName: "eShop"` |
 
 ## Source branches
 
@@ -72,35 +68,32 @@ These are the permanent branches with planted bugs. Each test run creates a temp
 
 ---
 
-## `/test`
+## Procedure — follow exactly, no improvisation
 
-Create a fresh PR on the currently configured provider, run the review pipeline, verify, then
-close the PR. No config changes needed.
+### Step 0 — Resolve profile
 
-### Procedure — follow exactly, no improvisation
-
-Read `appsettings.test.json` to determine the current provider, then follow the matching
-provider procedure below (GitHub or ADO).
+Read `appsettings.test.json`. Follow the profile resolution rules above to determine the profile
+name. Read `Provider`, `Organization`, `Project`, `RepositoryId`, `RepositoryName` from the
+matched profile. Then follow the matching provider procedure below.
 
 ---
 
-## `/test github`
-
-**Before running:** ensure `appsettings.test.json` has GitHub provider values (see known providers
-table). Edit if needed.
+## GitHub procedure
 
 ### Step 1 — Create temp branch + PR
 
+Use the profile's `Organization` and `RepositoryId` (format: `owner/repo`).
+
 ```bash
 # Get SHA of source branch
-sha=$(gh api repos/ivanrdvc/eShop/git/ref/heads/feature/order-tracking-notifications --jq '.object.sha')
+sha=$(gh api repos/{owner}/{repo}/git/ref/heads/feature/order-tracking-notifications --jq '.object.sha')
 
 # Create temp branch
 branch="revu-test-$(date +%s)"
-gh api repos/ivanrdvc/eShop/git/refs -f ref="refs/heads/$branch" -f sha="$sha"
+gh api repos/{owner}/{repo}/git/refs -f ref="refs/heads/$branch" -f sha="$sha"
 
 # Create PR and capture number
-pr_number=$(gh pr create --repo ivanrdvc/eShop --head "$branch" --base main \
+pr_number=$(gh pr create --repo {owner}/{repo} --head "$branch" --base main \
   --title "revu-test-$branch" --body "Automated test PR" | grep -o '[0-9]*$')
 
 echo "Created PR #$pr_number on branch $branch"
@@ -109,7 +102,7 @@ echo "Created PR #$pr_number on branch $branch"
 ### Step 2 — Run the test
 
 ```bash
-TestTarget__PrId=$pr_number TestTarget__Branch="refs/heads/$branch" \
+TEST_PROFILE={profile_name} TestTarget__PrId=$pr_number TestTarget__Branch="refs/heads/$branch" \
   dotnet test tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj \
   --filter "Review_FullPipeline_PostsFindings" \
   --logger "console;verbosity=detailed" > /tmp/revu-test.log 2>&1
@@ -130,7 +123,7 @@ python3 .claude/skills/test/scripts/verify.py --log /tmp/revu-test.log
 ### Step 5 — Close PR + delete branch
 
 ```bash
-gh pr close $pr_number --repo ivanrdvc/eShop --delete-branch
+gh pr close $pr_number --repo {owner}/{repo} --delete-branch
 ```
 
 Print the verify output to the user — that IS the full report. Do not add your own summary
@@ -145,17 +138,16 @@ For verbose output (full threads + findings), use `--filter "Verbose"` instead i
 
 ---
 
-## `/test ado`
-
-**Before running:** ensure `appsettings.test.json` has ADO provider values (see known providers
-table). Edit if needed.
+## ADO procedure
 
 ### Step 1 — Create temp branch + PR
 
+Use the profile's `Organization`, `Project`, and `RepositoryId`.
+
 ```bash
-org="https://dev.azure.com/ivanradovic"
-project="ivanrndvc-sc"
-repo_id="068b4389-3bae-438c-a0a7-08619db2b998"
+org="https://dev.azure.com/{organization}"
+project="{project}"
+repo_id="{repositoryId}"
 source_branch="feature/order-tracking-notifications"
 
 # Get SHA of source branch
@@ -178,7 +170,7 @@ echo "Created PR #$pr_id on branch $branch"
 ### Step 2 — Run the test
 
 ```bash
-TestTarget__PrId=$pr_id TestTarget__Branch="refs/heads/$branch" \
+TEST_PROFILE={profile_name} TestTarget__PrId=$pr_id TestTarget__Branch="refs/heads/$branch" \
   dotnet test tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj \
   --filter "Review_FullPipeline_PostsFindings" \
   --logger "console;verbosity=detailed" > /tmp/revu-test.log 2>&1

@@ -102,6 +102,8 @@ public partial class GitHubConnector(
                 if (compareResponse.IsSuccessStatusCode)
                 {
                     var compare = await compareResponse.Content.ReadFromJsonAsync<GitHubCompareResponse>(JsonSerializerOptions.Web);
+                    if (compare?.Files is { Count: 0 })
+                        return new Diff([], headSha);
                     if (compare?.Files is { Count: > 0 and < CompareFileCap })
                         incrementalFiles = compare.Files;
                     // If >= CompareFileCap, result may be truncated — fall back to full diff
@@ -147,6 +149,12 @@ public partial class GitHubConnector(
                 }
 
                 var patch = file.Patch;
+                if (patch is null)
+                {
+                    logger.LogInformation("Skipping {Path} — GitHub returned no patch (binary or too large)", path);
+                    return;
+                }
+
                 var content = await FetchFileContent(client, owner, repo, path, headSha);
                 var oldPath = kind == ChangeKind.Rename ? file.PreviousFilename : null;
 
