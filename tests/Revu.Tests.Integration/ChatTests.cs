@@ -47,10 +47,10 @@ public class ChatTests(
 
         Output.WriteLine($"Review posted: {result.Findings.Count} findings");
 
-        var commentId = await TestHelper.PostCommentOnRevuThread(TestEvent, "Why did you flag this? Can you explain?");
-        Output.WriteLine($"Posted test comment: {commentId}");
+        var (threadId, commentId) = await TestHelper.PostCommentOnRevuThread(TestEvent, "Why did you flag this? Can you explain?");
+        Output.WriteLine($"Posted test comment: thread {threadId}, comment {commentId}");
 
-        var threadContext = await Git.GetChatThreadContext(TestEvent, commentId);
+        var threadContext = await Git.GetChatThreadContext(TestEvent, threadId, commentId);
         Assert.NotNull(threadContext);
 
         var loadedSnapshot = await ReviewStore.GetLatestSnapshotAsync(TestEvent.RepositoryId, TestEvent.PullRequestId);
@@ -76,23 +76,25 @@ public class ChatTests(
         var configSvc = Services.GetRequiredService<IConfiguration>();
         var explicitCommentId = configSvc.GetValue<int?>("TestTarget:CommentId");
 
+        int threadId;
         int commentId;
         string userMessage;
 
         if (explicitCommentId is > 0)
         {
             commentId = explicitCommentId.Value;
+            threadId = 0; // explicit mode doesn't know the thread — will need TestTarget:ThreadId if used
             Output.WriteLine($"Using explicit comment ID: {commentId}");
             userMessage = ""; // will be filled from thread context
         }
         else
         {
             // Auto-detect: find latest human comment on a Revu thread
-            (commentId, userMessage) = await TestHelper.FindLatestHumanComment(TestEvent);
-            Output.WriteLine($"Auto-detected comment ID: {commentId}");
+            (threadId, commentId, userMessage) = await TestHelper.FindLatestHumanComment(TestEvent);
+            Output.WriteLine($"Auto-detected: thread {threadId}, comment {commentId}");
         }
 
-        var threadContext = await Git.GetChatThreadContext(TestEvent, commentId);
+        var threadContext = await Git.GetChatThreadContext(TestEvent, threadId, commentId);
         Assert.NotNull(threadContext);
         Output.WriteLine($"Thread: {threadContext.ThreadId}, file: {threadContext.FilePath}, fingerprint: {threadContext.Fingerprint}");
 

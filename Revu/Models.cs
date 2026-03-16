@@ -70,6 +70,7 @@ public record ReviewResult(
 
 public record ChatRequest(
     ReviewRequest Review,
+    int ThreadId,
     int CommentId,
     string UserMessage
 );

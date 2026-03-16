@@ -356,7 +356,7 @@ public class AdoConnector(
         }
     }
 
-    public async Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int commentId)
+    public async Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
     {
         var git = GetGitClient(req.Organization);
         var threads = await git.GetThreadsAsync(
@@ -364,39 +364,31 @@ public class AdoConnector(
             repositoryId: req.RepositoryId,
             pullRequestId: req.PullRequestId);
 
-        foreach (var thread in threads)
+        var thread = threads.FirstOrDefault(t => t.Id == threadId);
+        if (thread is null || thread.IsDeleted || thread.Comments is null)
+            return null;
+
+        var isRevuThread = thread.Properties?.GetValue<string>(RevuVersion, null!) is not null;
+
+        if (!isRevuThread)
         {
-            if (thread.IsDeleted || thread.Comments is null)
-                continue;
-
-            var match = thread.Comments.Any(c => c.Id == commentId);
-            if (!match) continue;
-
-            var isRevuThread = thread.Properties?.GetValue<string>(RevuVersion, null!) is not null;
-
-            if (!isRevuThread)
-            {
-                // Check for @revu mention in the triggering comment
-                var comment = thread.Comments.FirstOrDefault(c => c.Id == commentId);
-                if (comment?.Content?.Contains("@revu", StringComparison.OrdinalIgnoreCase) != true)
-                    return null;
-            }
-
-            var fingerprint = thread.Properties?.GetValue<string>(RevuFingerprint, null!);
-            var filePath = thread.ThreadContext?.FilePath;
-            var startLine = thread.ThreadContext?.RightFileStart?.Line;
-
-            var messages = thread.Comments
-                .Where(c => !c.IsDeleted && c.CommentType != CommentType.System)
-                .OrderBy(c => c.PublishedDate)
-                .Select(c => c.Content ?? "")
-                .Where(c => c.Length > 0)
-                .ToList();
-
-            return new ChatThreadContext(thread.Id, fingerprint, filePath, startLine, messages);
+            var comment = thread.Comments.FirstOrDefault(c => c.Id == commentId);
+            if (comment?.Content?.Contains("@revu", StringComparison.OrdinalIgnoreCase) != true)
+                return null;
         }
 
-        return null;
+        var fingerprint = thread.Properties?.GetValue<string>(RevuFingerprint, null!);
+        var filePath = thread.ThreadContext?.FilePath;
+        var startLine = thread.ThreadContext?.RightFileStart?.Line;
+
+        var messages = thread.Comments
+            .Where(c => !c.IsDeleted && c.CommentType != CommentType.System)
+            .OrderBy(c => c.PublishedDate)
+            .Select(c => c.Content ?? "")
+            .Where(c => c.Length > 0)
+            .ToList();
+
+        return new ChatThreadContext(thread.Id, fingerprint, filePath, startLine, messages);
     }
 
     public async Task PostChatReply(ReviewRequest req, int threadId, string body)

@@ -21,7 +21,7 @@ public class ChatFunction(
 
         var git = sp.GetRequiredKeyedService<IGitConnector>(req.Review.Provider);
 
-        var threadTask = git.GetChatThreadContext(req.Review, req.CommentId);
+        var threadTask = git.GetChatThreadContext(req.Review, req.ThreadId, req.CommentId);
         var snapshotTask = reviewStore.GetLatestSnapshotAsync(req.Review.RepositoryId, req.Review.PullRequestId);
         await Task.WhenAll(threadTask, snapshotTask);
 

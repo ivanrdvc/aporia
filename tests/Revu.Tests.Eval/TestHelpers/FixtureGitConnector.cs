@@ -44,7 +44,7 @@ public sealed class FixtureGitConnector(Dictionary<string, string> files) : IGit
     public Task<PrContext> GetPrContext(ReviewRequest req) =>
         Task.FromResult(new PrContext("Test PR", null, []));
 
-    public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int commentId) =>
+    public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId) =>
         throw new NotSupportedException("Chat is not supported in eval fixtures.");
 
     public Task PostChatReply(ReviewRequest req, int threadId, string body) =>

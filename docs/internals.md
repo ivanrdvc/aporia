@@ -79,4 +79,4 @@ Single database (`revu`), one Cosmos account. All stores are singletons that tak
 
 Queue names are configurable via `%ReviewQueue%`, `%ChatQueue%`, `%IndexQueue%` app settings — used by both triggers (consumers) and output bindings (producers). Prod uses `review-queue` / `chat-queue` / `index-queue`; local uses `*-dev` variants so the two never compete for messages.
 
-To test with real ADO webhooks locally, expose the local function via VS Dev Tunnels (`devtunnel host -p 7071 --allow-anonymous`) and point the ADO service hook at the tunnel URL. The local webhook writes to the `-dev` queues, and the local queue triggers consume them. Prod is unaffected.
+To test with real ADO webhooks locally: run `devtunnel host -p 7071 --allow-anonymous`, create an ADO service hook for `Pull request commented on` pointing at `{tunnel-url}/api/webhook/ado/comment`, then `func start` — comments with `@revu` on any registered repo will flow through the local pipeline.

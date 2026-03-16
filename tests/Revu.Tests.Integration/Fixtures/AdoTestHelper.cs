@@ -55,7 +55,7 @@ internal class AdoTestHelper(TestRepoOptions options, GitHttpClient gitClient) :
         }
     }
 
-    public async Task<int> PostCommentOnRevuThread(ReviewRequest req, string message)
+    public async Task<(int ThreadId, int CommentId)> PostCommentOnRevuThread(ReviewRequest req, string message)
     {
         var threads = await GetRevuThreads(req);
         var target = threads.FirstOrDefault(t => t.ThreadContext?.FilePath is not null)
@@ -64,10 +64,10 @@ internal class AdoTestHelper(TestRepoOptions options, GitHttpClient gitClient) :
         var comment = new Comment { Content = message, CommentType = CommentType.Text };
         var posted = await gitClient.CreateCommentAsync(
             comment, req.Project, req.RepositoryId, req.PullRequestId, target.Id);
-        return posted.Id;
+        return (target.Id, posted.Id);
     }
 
-    public async Task<(int CommentId, string Message)> FindLatestHumanComment(ReviewRequest req)
+    public async Task<(int ThreadId, int CommentId, string Message)> FindLatestHumanComment(ReviewRequest req)
     {
         var threads = await GetRevuThreads(req);
         foreach (var thread in threads.OrderByDescending(t => t.Id))
@@ -79,7 +79,7 @@ internal class AdoTestHelper(TestRepoOptions options, GitHttpClient gitClient) :
                 .FirstOrDefault();
 
             if (human is not null)
-                return (human.Id, human.Content!);
+                return (thread.Id, human.Id, human.Content!);
         }
 
         throw new InvalidOperationException("No human comment found on any Revu thread");

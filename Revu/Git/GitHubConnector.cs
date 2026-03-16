@@ -362,7 +362,7 @@ public partial class GitHubConnector(
         }
     }
 
-    public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int commentId)
+    public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
         => throw new NotSupportedException("GitHub chat is not yet implemented.");
 
     public Task PostChatReply(ReviewRequest req, int threadId, string body)
