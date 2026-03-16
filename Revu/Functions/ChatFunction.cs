@@ -15,7 +15,7 @@ public class ChatFunction(
     ILogger<ChatFunction> logger)
 {
     [Function("ChatProcessor")]
-    public async Task Run([QueueTrigger("chat-queue")] ChatRequest req)
+    public async Task Run([QueueTrigger("%ChatQueue%")] ChatRequest req)
     {
         logger.LogInformation("Processing chat for PR #{PrId}, comment {CommentId}", req.Review.PullRequestId, req.CommentId);
 

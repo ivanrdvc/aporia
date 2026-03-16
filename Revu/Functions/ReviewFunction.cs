@@ -18,7 +18,7 @@ public class ReviewFunction(
     public const string FunctionName = "ReviewProcessor";
 
     [Function(FunctionName)]
-    public async Task Run([QueueTrigger("review-queue")] ReviewRequest req)
+    public async Task Run([QueueTrigger("%ReviewQueue%")] ReviewRequest req)
     {
         logger.LogInformation("Processing review for PR #{PrId} in {Project}", req.PullRequestId, req.Project);
 

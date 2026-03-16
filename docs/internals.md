@@ -74,3 +74,7 @@ Single database (`revu`), one Cosmos account. All stores are singletons that tak
 **reviews** — one document per review event. Captures status, findings count by severity, token usage, duration, and `conversationId` link to the AI session. Foundation for history and metrics.
 
 **sessions** — AI conversation history. Managed by MAF's `CosmosChatHistoryProvider`. 180-day TTL. Linked from review documents for debugging.
+
+# Dev queue fan-out
+
+Queue names on consumers (ReviewFunction, ChatFunction, IndexFunction) are configurable via `%ReviewQueue%`, `%ChatQueue%`, `%IndexQueue%` settings. Prod points to `review-queue`, `chat-queue`, `index-queue`; local points to `*-dev` variants. Webhook producers always write to the prod queue, and conditionally fan out to the `-dev` queue when `Revu:EnableDevQueue` is `true` — flip it on in Azure portal, trigger a webhook, flip it off. Local app only processes messages you explicitly put there.

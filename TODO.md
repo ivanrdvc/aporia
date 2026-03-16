@@ -5,6 +5,7 @@
 - Fix hardcoded max turns in prompt
 - Merge overlapping findings on same line range before posting
 - Pin `GetFile`/`ListFiles` to iteration commit SHA instead of branch tip
+- `CodeGraphIndexer` was registered as singleton with non-keyed `IGitConnector` — broke DI validation locally after keyed services were introduced. Temp-fixed by resolving via `IServiceProvider` at runtime. Should align with `IndexFunction`'s provider from `IndexRequest`.
 
 ## Features
 

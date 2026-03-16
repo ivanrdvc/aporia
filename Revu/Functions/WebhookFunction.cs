@@ -40,7 +40,12 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
 
         request = request with { Organization = repo.Organization };
 
-        return new WebhookResponse { QueueMessage = JsonSerializer.Serialize(request) };
+        var json = JsonSerializer.Serialize(request);
+        return new WebhookResponse
+        {
+            QueueMessage = json,
+            DevQueueMessage = revuOptions.Value.EnableDevQueue ? json : null
+        };
     }
 
     [Function("WebhookGitHub")]
@@ -91,7 +96,12 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
 
         request = request with { Organization = repo.Organization };
 
-        return new WebhookResponse { QueueMessage = JsonSerializer.Serialize(request) };
+        var json = JsonSerializer.Serialize(request);
+        return new WebhookResponse
+        {
+            QueueMessage = json,
+            DevQueueMessage = revuOptions.Value.EnableDevQueue ? json : null
+        };
     }
 
     [Function("WebhookAdoComment")]
@@ -100,7 +110,7 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
         if (!revuOptions.Value.EnableChat)
             return new ChatWebhookResponse();
 
-        var webhook = await req.ReadFromJsonAsync<AdoCommentWebhook>();
+        var webhook = await req.ReadFromJsonAsync<AdoCommentWebhook>(JsonSerializerOptions.Web);
 
         if (webhook?.ToChatRequest() is not { } chatRequest)
             return new ChatWebhookResponse();
@@ -112,7 +122,12 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
 
         chatRequest = chatRequest with { Review = chatRequest.Review with { Organization = repo.Organization } };
 
-        return new ChatWebhookResponse { QueueMessage = JsonSerializer.Serialize(chatRequest) };
+        var json = JsonSerializer.Serialize(chatRequest);
+        return new ChatWebhookResponse
+        {
+            QueueMessage = json,
+            DevQueueMessage = revuOptions.Value.EnableDevQueue ? json : null
+        };
     }
 }
 
@@ -123,6 +138,9 @@ public class ChatWebhookResponse
 
     [QueueOutput("chat-queue")]
     public string? QueueMessage { get; set; }
+
+    [QueueOutput("chat-queue-dev")]
+    public string? DevQueueMessage { get; set; }
 }
 
 public class WebhookResponse
@@ -132,4 +150,7 @@ public class WebhookResponse
 
     [QueueOutput("review-queue")]
     public string? QueueMessage { get; set; }
+
+    [QueueOutput("review-queue-dev")]
+    public string? DevQueueMessage { get; set; }
 }

@@ -6,9 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Enums;
-using Microsoft.OpenApi.Models;
-
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Models;
 
 using Revu.CodeGraph;
 using Revu.Git;
@@ -56,12 +55,15 @@ public class AdminFunction(IRepoStore repoStore, IOptions<RevuOptions> options)
         var needsIndex = options.Value.EnableCodeGraph
             && (existing is null || existing.Provider != provider || body.ForceReindex == true);
 
+        var indexJson = needsIndex
+            ? JsonSerializer.Serialize(new IndexRequest(repo.Id, body.Project ?? "", provider, branch))
+            : null;
+
         return new RegisterRepoResponse
         {
             Result = new OkObjectResult(repo),
-            IndexMessage = needsIndex
-                ? JsonSerializer.Serialize(new IndexRequest(repo.Id, body.Project ?? "", provider, branch))
-                : null
+            IndexMessage = indexJson,
+            DevIndexMessage = options.Value.EnableDevQueue ? indexJson : null
         };
     }
 
@@ -83,4 +85,7 @@ public class RegisterRepoResponse
 
     [QueueOutput("index-queue")]
     public string? IndexMessage { get; set; }
+
+    [QueueOutput("index-queue-dev")]
+    public string? DevIndexMessage { get; set; }
 }

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Revu.Git;
@@ -10,7 +11,7 @@ using Revu.Infra.Cosmos;
 namespace Revu.CodeGraph;
 
 public class CodeGraphIndexer(
-    IGitConnector git,
+    IServiceProvider sp,
     ICodeGraphStore store,
     IRepoStore repoStore,
     IEnumerable<ILanguageParser> parsers,
@@ -21,6 +22,7 @@ public class CodeGraphIndexer(
 
     public async Task IndexAsync(IndexRequest req, CancellationToken ct)
     {
+        var git = sp.GetRequiredKeyedService<IGitConnector>(req.Provider);
         var repo = await repoStore.GetAsync(req.RepositoryId);
         var organization = repo?.Organization ?? "";
 
