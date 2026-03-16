@@ -4,8 +4,7 @@ namespace Revu.Git;
 
 /// <summary>
 /// ADO service hook payload for <c>ms.vss-code.git-pullrequest-comment-event</c>.
-/// In this event type, <c>resource</c> IS the comment directly — PR and repo IDs
-/// are extracted from the comment's <c>_links.self</c> URL.
+/// The <c>resource</c> contains nested <c>comment</c> and <c>pullRequest</c> objects.
 /// </summary>
 public record AdoCommentWebhook(string EventType, AdoCommentResource Resource, AdoResourceContainers? ResourceContainers)
 {
@@ -16,73 +15,58 @@ public record AdoCommentWebhook(string EventType, AdoCommentResource Resource, A
         if (EventType is not "ms.vss-code.git-pullrequest-comment-event")
             return null;
 
-        if (Resource is not { IsDeleted: false, Content: not (null or "") })
+        var comment = Resource.Comment;
+        if (comment is null or { IsDeleted: true } or { Content: null or "" })
             return null;
 
         // Only new comments, not edits
-        if (Resource.PublishedDate != Resource.LastContentUpdatedDate)
+        if (comment.PublishedDate != comment.LastContentUpdatedDate)
             return null;
 
         // Self-reply loop prevention
-        if (Resource.Content.StartsWith(ChatMarker))
+        if (comment.Content.StartsWith(ChatMarker))
             return null;
 
-        if (!TryParseSelfLink(Resource.Links?.Self?.Href, out var repoId, out var prId))
+        var pr = Resource.PullRequest;
+        if (pr?.Repository is null)
             return null;
 
-        var projectId = ResourceContainers?.Project?.Id;
-        if (projectId is null)
+        var project = pr.Repository.Project?.Name
+                      ?? ResourceContainers?.Project?.Id;
+        if (project is null)
             return null;
 
         return new ChatRequest(
             Review: new ReviewRequest(
                 Provider: GitProvider.Ado,
-                Project: projectId,
-                RepositoryId: repoId,
-                RepositoryName: "",
-                PullRequestId: prId,
-                SourceBranch: "",
-                TargetBranch: ""),
-            CommentId: Resource.Id,
-            UserMessage: Resource.Content);
-    }
-
-    /// <summary>
-    /// Parses repository ID and PR ID from the self link URL.
-    /// Format: .../repositories/{repoId}/pullRequests/{prId}/threads/{threadId}/comments/{commentId}
-    /// </summary>
-    internal static bool TryParseSelfLink(string? url, out string repoId, out int prId)
-    {
-        repoId = "";
-        prId = 0;
-        if (url is null) return false;
-
-        const string repoSeg = "/repositories/";
-        const string prSeg = "/pullRequests/";
-
-        var ri = url.IndexOf(repoSeg, StringComparison.Ordinal);
-        var pi = url.IndexOf(prSeg, StringComparison.Ordinal);
-        if (ri < 0 || pi < 0) return false;
-
-        var repoStart = ri + repoSeg.Length;
-        var repoEnd = url.IndexOf('/', repoStart);
-        if (repoEnd < 0) return false;
-        repoId = url[repoStart..repoEnd];
-
-        var prStart = pi + prSeg.Length;
-        var prEnd = url.IndexOf('/', prStart);
-        var prStr = prEnd >= 0 ? url[prStart..prEnd] : url[prStart..];
-        return int.TryParse(prStr, out prId);
+                Project: project,
+                RepositoryId: pr.Repository.Id,
+                RepositoryName: pr.Repository.Name ?? "",
+                PullRequestId: pr.PullRequestId,
+                SourceBranch: pr.SourceRefName ?? "",
+                TargetBranch: pr.TargetRefName ?? ""),
+            CommentId: comment.Id,
+            UserMessage: comment.Content);
     }
 }
 
 /// <summary>
-/// The comment resource. Uses init properties because <c>_links</c> requires
-/// a custom <see cref="JsonPropertyNameAttribute"/>.
+/// The resource object containing the comment and its associated pull request.
 /// </summary>
 public record AdoCommentResource
 {
+    public AdoComment? Comment { get; init; }
+    public AdoCommentPullRequest? PullRequest { get; init; }
+}
+
+/// <summary>
+/// An individual PR comment. Uses init properties because <c>_links</c> requires
+/// a custom <see cref="JsonPropertyNameAttribute"/>.
+/// </summary>
+public record AdoComment
+{
     public int Id { get; init; }
+    public int ParentCommentId { get; init; }
     public string? Content { get; init; }
     public DateTimeOffset PublishedDate { get; init; }
     public DateTimeOffset LastContentUpdatedDate { get; init; }
@@ -92,6 +76,28 @@ public record AdoCommentResource
     public AdoCommentLinks? Links { get; init; }
 }
 
+/// <summary>
+/// Slimmed-down pull request included in comment webhook payloads.
+/// </summary>
+public record AdoCommentPullRequest
+{
+    public int PullRequestId { get; init; }
+    public string? SourceRefName { get; init; }
+    public string? TargetRefName { get; init; }
+    public AdoCommentRepository? Repository { get; init; }
+}
+
+/// <summary>
+/// Repository with project context, as nested in comment webhook payloads.
+/// </summary>
+public record AdoCommentRepository
+{
+    public required string Id { get; init; }
+    public string? Name { get; init; }
+    public AdoCommentProject? Project { get; init; }
+}
+
+public record AdoCommentProject(string? Id, string? Name);
 public record AdoCommentLinks(AdoLinkRef? Self);
 public record AdoLinkRef(string? Href);
 public record AdoResourceContainers(AdoResourceContainer? Project);

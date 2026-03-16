@@ -73,9 +73,6 @@ public class AdoWebhookTests
 
 public class AdoCommentWebhookTests
 {
-    private const string SelfLink =
-        "https://dev.azure.com/myorg/proj/_apis/git/repositories/repo-abc/pullRequests/42/threads/10/comments/3";
-
     [Fact]
     public void ToChatRequest_ValidComment_ReturnsChatRequest()
     {
@@ -85,8 +82,9 @@ public class AdoCommentWebhookTests
 
         Assert.NotNull(result);
         Assert.Equal(GitProvider.Ado, result.Review.Provider);
-        Assert.Equal("proj-id", result.Review.Project);
+        Assert.Equal("my-project", result.Review.Project);
         Assert.Equal("repo-abc", result.Review.RepositoryId);
+        Assert.Equal("my-repo", result.Review.RepositoryName);
         Assert.Equal(42, result.Review.PullRequestId);
         Assert.Equal(3, result.CommentId);
         Assert.Equal("@revu explain this", result.UserMessage);
@@ -138,66 +136,139 @@ public class AdoCommentWebhookTests
     }
 
     [Fact]
-    public void ToChatRequest_NoSelfLink_ReturnsNull()
+    public void ToChatRequest_NoPullRequest_ReturnsNull()
     {
-        var webhook = CreateCommentWebhook("@revu hello", selfLink: null);
+        var now = DateTimeOffset.UtcNow;
+        var webhook = new AdoCommentWebhook(
+            "ms.vss-code.git-pullrequest-comment-event",
+            new AdoCommentResource
+            {
+                Comment = new AdoComment
+                {
+                    Id = 3,
+                    Content = "@revu hello",
+                    PublishedDate = now,
+                    LastContentUpdatedDate = now,
+                },
+                PullRequest = null
+            },
+            new AdoResourceContainers(new AdoResourceContainer("proj-id")));
 
         Assert.Null(webhook.ToChatRequest());
     }
 
     [Fact]
-    public void ToChatRequest_NoProjectContainer_ReturnsNull()
+    public void ToChatRequest_NoProject_ReturnsNull()
     {
-        var webhook = CreateCommentWebhook("@revu hello", projectId: null);
+        var now = DateTimeOffset.UtcNow;
+        var webhook = new AdoCommentWebhook(
+            "ms.vss-code.git-pullrequest-comment-event",
+            new AdoCommentResource
+            {
+                Comment = new AdoComment
+                {
+                    Id = 3,
+                    Content = "@revu hello",
+                    PublishedDate = now,
+                    LastContentUpdatedDate = now,
+                },
+                PullRequest = new AdoCommentPullRequest
+                {
+                    PullRequestId = 42,
+                    Repository = new AdoCommentRepository
+                    {
+                        Id = "repo-abc",
+                        Name = "my-repo",
+                        Project = null
+                    }
+                }
+            },
+            ResourceContainers: null);
 
         Assert.Null(webhook.ToChatRequest());
     }
 
-    [Theory]
-    [InlineData(SelfLink, "repo-abc", 42)]
-    [InlineData("https://dev.azure.com/org/proj/_apis/git/repositories/guid-123/pullRequests/7/threads/1/comments/1", "guid-123", 7)]
-    [InlineData("https://dev.azure.com/org/proj/_apis/git/repositories/guid-123/pullRequests/99", "guid-123", 99)]
-    public void TryParseSelfLink_ValidUrl_ExtractsIds(string url, string expectedRepoId, int expectedPrId)
+    [Fact]
+    public void ToChatRequest_FallsBackToResourceContainersProject()
     {
-        var result = AdoCommentWebhook.TryParseSelfLink(url, out var repoId, out var prId);
+        var now = DateTimeOffset.UtcNow;
+        var webhook = new AdoCommentWebhook(
+            "ms.vss-code.git-pullrequest-comment-event",
+            new AdoCommentResource
+            {
+                Comment = new AdoComment
+                {
+                    Id = 3,
+                    Content = "@revu hello",
+                    PublishedDate = now,
+                    LastContentUpdatedDate = now,
+                },
+                PullRequest = new AdoCommentPullRequest
+                {
+                    PullRequestId = 42,
+                    Repository = new AdoCommentRepository
+                    {
+                        Id = "repo-abc",
+                        Name = "my-repo",
+                        Project = null
+                    }
+                }
+            },
+            new AdoResourceContainers(new AdoResourceContainer("fallback-proj-id")));
 
-        Assert.True(result);
-        Assert.Equal(expectedRepoId, repoId);
-        Assert.Equal(expectedPrId, prId);
-    }
+        var result = webhook.ToChatRequest()!;
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("https://dev.azure.com/org/proj/_apis/git/items")]
-    [InlineData("https://dev.azure.com/org/proj/_apis/git/repositories/repo-abc")]
-    public void TryParseSelfLink_InvalidUrl_ReturnsFalse(string? url)
-    {
-        var result = AdoCommentWebhook.TryParseSelfLink(url, out _, out _);
-
-        Assert.False(result);
+        Assert.NotNull(result);
+        Assert.Equal("fallback-proj-id", result.Review.Project);
     }
 
     [Fact]
-    public void ToChatRequest_JsonDeserialization_Works()
+    public void ToChatRequest_JsonDeserialization_MatchesRealPayload()
     {
         var json = """
         {
             "eventType": "ms.vss-code.git-pullrequest-comment-event",
             "resource": {
-                "id": 5,
-                "content": "@revu test",
-                "publishedDate": "2026-03-16T12:00:00Z",
-                "lastContentUpdatedDate": "2026-03-16T12:00:00Z",
-                "isDeleted": false,
-                "_links": {
-                    "self": {
-                        "href": "https://dev.azure.com/org/proj/_apis/git/repositories/repo-1/pullRequests/10/threads/1/comments/5"
+                "comment": {
+                    "id": 1,
+                    "parentCommentId": 0,
+                    "author": {
+                        "displayName": "Ivan Radovic",
+                        "id": "91aff1c0-fc5e-68ed-982a-74496032443b",
+                        "uniqueName": "ivan@example.com"
+                    },
+                    "content": "@revu feedback this is a test!",
+                    "publishedDate": "2025-07-22T23:05:57.18Z",
+                    "lastUpdatedDate": "2025-07-22T23:05:57.18Z",
+                    "lastContentUpdatedDate": "2025-07-22T23:05:57.18Z",
+                    "commentType": "text",
+                    "isDeleted": false,
+                    "_links": {
+                        "self": {
+                            "href": "https://dev.azure.com/myorg/_apis/git/repositories/298f9c48-cb77-4207-8a11-e6f4377d09cf/pullRequests/21/threads/836/comments/1"
+                        }
                     }
+                },
+                "pullRequest": {
+                    "repository": {
+                        "id": "298f9c48-cb77-4207-8a11-e6f4377d09cf",
+                        "name": "test-project-one",
+                        "project": {
+                            "id": "784a39f1-7620-4a3c-9cd9-7b558a722201",
+                            "name": "Pilots Dev"
+                        }
+                    },
+                    "pullRequestId": 21,
+                    "status": "active",
+                    "sourceRefName": "refs/heads/c-1",
+                    "targetRefName": "refs/heads/master",
+                    "isDraft": false
                 }
             },
             "resourceContainers": {
-                "project": { "id": "proj-guid" }
+                "collection": { "id": "6d522a72-a29e-4201-a0db-be6744b865c2" },
+                "account": { "id": "5d624764-a901-45ac-b7f6-3760c1cfe5f3" },
+                "project": { "id": "784a39f1-7620-4a3c-9cd9-7b558a722201" }
             }
         }
         """;
@@ -207,19 +278,20 @@ public class AdoCommentWebhookTests
         var result = webhook.ToChatRequest()!;
 
         Assert.NotNull(result);
-        Assert.Equal("repo-1", result.Review.RepositoryId);
-        Assert.Equal(10, result.Review.PullRequestId);
-        Assert.Equal("proj-guid", result.Review.Project);
-        Assert.Equal(5, result.CommentId);
-        Assert.Equal("@revu test", result.UserMessage);
+        Assert.Equal("298f9c48-cb77-4207-8a11-e6f4377d09cf", result.Review.RepositoryId);
+        Assert.Equal("test-project-one", result.Review.RepositoryName);
+        Assert.Equal(21, result.Review.PullRequestId);
+        Assert.Equal("Pilots Dev", result.Review.Project);
+        Assert.Equal("refs/heads/c-1", result.Review.SourceBranch);
+        Assert.Equal("refs/heads/master", result.Review.TargetBranch);
+        Assert.Equal(1, result.CommentId);
+        Assert.Equal("@revu feedback this is a test!", result.UserMessage);
     }
 
     static AdoCommentWebhook CreateCommentWebhook(
         string? content,
         string eventType = "ms.vss-code.git-pullrequest-comment-event",
         bool isDeleted = false,
-        string? selfLink = SelfLink,
-        string? projectId = "proj-id",
         DateTimeOffset? publishedDate = null,
         DateTimeOffset? lastContentUpdatedDate = null)
     {
@@ -228,17 +300,27 @@ public class AdoCommentWebhookTests
             eventType,
             new AdoCommentResource
             {
-                Id = 3,
-                Content = content,
-                PublishedDate = now,
-                LastContentUpdatedDate = lastContentUpdatedDate ?? now,
-                IsDeleted = isDeleted,
-                Links = selfLink is not null
-                    ? new AdoCommentLinks(new AdoLinkRef(selfLink))
-                    : null
+                Comment = new AdoComment
+                {
+                    Id = 3,
+                    Content = content,
+                    PublishedDate = now,
+                    LastContentUpdatedDate = lastContentUpdatedDate ?? now,
+                    IsDeleted = isDeleted,
+                },
+                PullRequest = new AdoCommentPullRequest
+                {
+                    PullRequestId = 42,
+                    SourceRefName = "refs/heads/feature",
+                    TargetRefName = "refs/heads/main",
+                    Repository = new AdoCommentRepository
+                    {
+                        Id = "repo-abc",
+                        Name = "my-repo",
+                        Project = new AdoCommentProject("proj-id", "my-project")
+                    }
+                }
             },
-            projectId is not null
-                ? new AdoResourceContainers(new AdoResourceContainer(projectId))
-                : null);
+            new AdoResourceContainers(new AdoResourceContainer("proj-id")));
     }
 }
