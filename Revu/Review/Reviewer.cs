@@ -148,7 +148,14 @@ public class Reviewer(
         var sb = new StringBuilder();
         sb.AppendLine(Prompts.ChatInstructions);
 
-        if (snapshot is not null)
+        if (snapshot is null)
+        {
+            sb.AppendLine("\n<review_snapshot>");
+            sb.AppendLine("No prior review found for this PR. You have no review findings to reference.");
+            sb.AppendLine("Use your tools to investigate the codebase if needed.");
+            sb.AppendLine("</review_snapshot>");
+        }
+        else
         {
             sb.AppendLine("\n<review_snapshot>");
             sb.AppendLine($"PR Title: {snapshot.PrTitle}");
@@ -192,14 +199,16 @@ public class Reviewer(
             sb.AppendLine("</thread_anchor>");
         }
 
-        var humanMessages = threadContext.ThreadMessages
-            .Where(m => !m.StartsWith(ChatMarker))
+        // Only include messages before the first chat reply — once chat begins,
+        // Cosmos session history carries the structured turns and avoids duplication.
+        var preChatMessages = threadContext.ThreadMessages
+            .TakeWhile(m => !m.StartsWith(ChatMarker))
             .ToList();
 
-        if (humanMessages.Count > 0)
+        if (preChatMessages.Count > 0)
         {
             sb.AppendLine("\n<thread_conversation>");
-            foreach (var msg in humanMessages)
+            foreach (var msg in preChatMessages)
                 sb.AppendLine(msg);
             sb.AppendLine("</thread_conversation>");
         }

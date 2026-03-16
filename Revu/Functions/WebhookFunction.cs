@@ -40,12 +40,7 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
 
         request = request with { Organization = repo.Organization };
 
-        var json = JsonSerializer.Serialize(request);
-        return new WebhookResponse
-        {
-            QueueMessage = json,
-            DevQueueMessage = revuOptions.Value.EnableDevQueue ? json : null
-        };
+        return new WebhookResponse { QueueMessage = JsonSerializer.Serialize(request) };
     }
 
     [Function("WebhookGitHub")]
@@ -96,12 +91,7 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
 
         request = request with { Organization = repo.Organization };
 
-        var json = JsonSerializer.Serialize(request);
-        return new WebhookResponse
-        {
-            QueueMessage = json,
-            DevQueueMessage = revuOptions.Value.EnableDevQueue ? json : null
-        };
+        return new WebhookResponse { QueueMessage = JsonSerializer.Serialize(request) };
     }
 
     [Function("WebhookAdoComment")]
@@ -122,12 +112,7 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
 
         chatRequest = chatRequest with { Review = chatRequest.Review with { Organization = repo.Organization } };
 
-        var json = JsonSerializer.Serialize(chatRequest);
-        return new ChatWebhookResponse
-        {
-            QueueMessage = json,
-            DevQueueMessage = revuOptions.Value.EnableDevQueue ? json : null
-        };
+        return new ChatWebhookResponse { QueueMessage = JsonSerializer.Serialize(chatRequest) };
     }
 }
 
@@ -136,11 +121,8 @@ public class ChatWebhookResponse
     [HttpResult]
     public IActionResult Result { get; set; } = new OkResult();
 
-    [QueueOutput("chat-queue")]
+    [QueueOutput("%ChatQueue%")]
     public string? QueueMessage { get; set; }
-
-    [QueueOutput("chat-queue-dev")]
-    public string? DevQueueMessage { get; set; }
 }
 
 public class WebhookResponse
@@ -148,9 +130,6 @@ public class WebhookResponse
     [HttpResult]
     public IActionResult Result { get; set; } = new OkResult();
 
-    [QueueOutput("review-queue")]
+    [QueueOutput("%ReviewQueue%")]
     public string? QueueMessage { get; set; }
-
-    [QueueOutput("review-queue-dev")]
-    public string? DevQueueMessage { get; set; }
 }

@@ -55,15 +55,12 @@ public class AdminFunction(IRepoStore repoStore, IOptions<RevuOptions> options)
         var needsIndex = options.Value.EnableCodeGraph
             && (existing is null || existing.Provider != provider || body.ForceReindex == true);
 
-        var indexJson = needsIndex
-            ? JsonSerializer.Serialize(new IndexRequest(repo.Id, body.Project ?? "", provider, branch))
-            : null;
-
         return new RegisterRepoResponse
         {
             Result = new OkObjectResult(repo),
-            IndexMessage = indexJson,
-            DevIndexMessage = options.Value.EnableDevQueue ? indexJson : null
+            IndexMessage = needsIndex
+                ? JsonSerializer.Serialize(new IndexRequest(repo.Id, body.Project ?? "", provider, branch))
+                : null
         };
     }
 
@@ -83,9 +80,6 @@ public class RegisterRepoResponse
     [HttpResult]
     public IActionResult Result { get; set; } = new OkResult();
 
-    [QueueOutput("index-queue")]
+    [QueueOutput("%IndexQueue%")]
     public string? IndexMessage { get; set; }
-
-    [QueueOutput("index-queue-dev")]
-    public string? DevIndexMessage { get; set; }
 }

@@ -75,6 +75,8 @@ Single database (`revu`), one Cosmos account. All stores are singletons that tak
 
 **sessions** — AI conversation history. Managed by MAF's `CosmosChatHistoryProvider`. 180-day TTL. Linked from review documents for debugging.
 
-# Dev queue fan-out
+# Local testing
 
-Queue names on consumers (ReviewFunction, ChatFunction, IndexFunction) are configurable via `%ReviewQueue%`, `%ChatQueue%`, `%IndexQueue%` settings. Prod points to `review-queue`, `chat-queue`, `index-queue`; local points to `*-dev` variants. Webhook producers always write to the prod queue, and conditionally fan out to the `-dev` queue when `Revu:EnableDevQueue` is `true` — flip it on in Azure portal, trigger a webhook, flip it off. Local app only processes messages you explicitly put there.
+Queue names are configurable via `%ReviewQueue%`, `%ChatQueue%`, `%IndexQueue%` app settings — used by both triggers (consumers) and output bindings (producers). Prod uses `review-queue` / `chat-queue` / `index-queue`; local uses `*-dev` variants so the two never compete for messages.
+
+To test with real ADO webhooks locally, expose the local function via VS Dev Tunnels (`devtunnel host -p 7071 --allow-anonymous`) and point the ADO service hook at the tunnel URL. The local webhook writes to the `-dev` queues, and the local queue triggers consume them. Prod is unaffected.
