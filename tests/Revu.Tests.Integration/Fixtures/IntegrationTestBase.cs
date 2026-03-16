@@ -25,6 +25,7 @@ public abstract class IntegrationTestBase(
     protected IGitConnector Git => Services.GetRequiredService<IGitConnector>();
     protected ITestHelper TestHelper => Services.GetRequiredService<ITestHelper>();
     protected Reviewer Reviewer => Services.GetRequiredService<Reviewer>();
+    protected IReviewStore ReviewStore => Services.GetRequiredService<IReviewStore>();
 
     /// <summary>Reset iteration state so GetDiff returns a full diff.</summary>
     protected async Task ResetReviewState(ReviewRequest req)

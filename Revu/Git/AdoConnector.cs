@@ -210,7 +210,7 @@ public class AdoConnector(
         // Post new findings, skipping those already posted (fingerprint match)
         foreach (var finding in result.Findings)
         {
-            var fingerprint = Fingerprint(finding);
+            var fingerprint = Finding.Fingerprint(finding);
 
             if (revuThreads.ContainsKey(fingerprint))
                 continue; // already posted in a prior review
@@ -356,6 +356,62 @@ public class AdoConnector(
         }
     }
 
+    public async Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int commentId)
+    {
+        var git = GetGitClient(req.Organization);
+        var threads = await git.GetThreadsAsync(
+            project: req.Project,
+            repositoryId: req.RepositoryId,
+            pullRequestId: req.PullRequestId);
+
+        foreach (var thread in threads)
+        {
+            if (thread.IsDeleted || thread.Comments is null)
+                continue;
+
+            var match = thread.Comments.Any(c => c.Id == commentId);
+            if (!match) continue;
+
+            var isRevuThread = thread.Properties?.GetValue<string>(RevuVersion, null!) is not null;
+
+            if (!isRevuThread)
+            {
+                // Check for @revu mention in the triggering comment
+                var comment = thread.Comments.FirstOrDefault(c => c.Id == commentId);
+                if (comment?.Content?.Contains("@revu", StringComparison.OrdinalIgnoreCase) != true)
+                    return null;
+            }
+
+            var fingerprint = thread.Properties?.GetValue<string>(RevuFingerprint, null!);
+            var filePath = thread.ThreadContext?.FilePath;
+            var startLine = thread.ThreadContext?.RightFileStart?.Line;
+
+            var messages = thread.Comments
+                .Where(c => !c.IsDeleted && c.CommentType != CommentType.System)
+                .OrderBy(c => c.PublishedDate)
+                .Select(c => c.Content ?? "")
+                .Where(c => c.Length > 0)
+                .ToList();
+
+            return new ChatThreadContext(thread.Id, fingerprint, filePath, startLine, messages);
+        }
+
+        return null;
+    }
+
+    public async Task PostChatReply(ReviewRequest req, int threadId, string body)
+    {
+        var git = GetGitClient(req.Organization);
+
+        var comment = new Comment
+        {
+            Content = $"<!-- revu:chat -->\n{body}",
+            CommentType = CommentType.Text
+        };
+
+        await git.CreateCommentAsync(comment, req.Project, req.RepositoryId, req.PullRequestId, threadId);
+    }
+
     private async Task<string?> ReadFile(
         ReviewRequest req,
         string path,
@@ -394,10 +450,4 @@ public class AdoConnector(
         return $"{finding.Message}\n\n```suggestion\n{finding.CodeFix}\n```";
     }
 
-    internal static string Fingerprint(Finding finding)
-    {
-        var input = $"{finding.FilePath.TrimStart('/').ToLowerInvariant()}|{finding.Message.Trim().ToLowerInvariant()}";
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexStringLower(hash)[..16];
-    }
 }

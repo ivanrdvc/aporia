@@ -182,7 +182,7 @@ public partial class GitHubConnector(
 
         foreach (var finding in result.Findings)
         {
-            var fingerprint = Fingerprint(finding);
+            var fingerprint = Finding.Fingerprint(finding);
             if (existingFingerprints.Contains(fingerprint))
                 continue;
 
@@ -361,6 +361,12 @@ public partial class GitHubConnector(
             return new PrContext("", null, []);
         }
     }
+
+    public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int commentId)
+        => throw new NotSupportedException("GitHub chat is not yet implemented.");
+
+    public Task PostChatReply(ReviewRequest req, int threadId, string body)
+        => throw new NotSupportedException("GitHub chat is not yet implemented.");
 
     private static (string Owner, string Repo) ParseRepoId(string repositoryId)
     {
@@ -586,10 +592,4 @@ public partial class GitHubConnector(
         public bool Contains(int line) => line >= Start && line <= End;
     }
 
-    internal static string Fingerprint(Finding finding)
-    {
-        var input = $"{finding.FilePath.TrimStart('/').ToLowerInvariant()}|{finding.Message.Trim().ToLowerInvariant()}";
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexStringLower(hash)[..16];
-    }
 }

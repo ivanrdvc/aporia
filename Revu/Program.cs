@@ -1,5 +1,6 @@
 using Microsoft.Agents.AI;
 using Microsoft.Azure.Functions.Worker.Builder;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -35,6 +36,8 @@ builder.Services.AddScoped<Reviewer>(sp => new Reviewer(
     sp.GetRequiredKeyedService<IReviewStrategy>,
     sp.GetRequiredService<ICodeGraphStore>(),
     sp.GetRequiredService<IOptions<RevuOptions>>(),
-    sp.GetRequiredService<ILogger<Reviewer>>()));
+    sp.GetRequiredService<ILogger<Reviewer>>(),
+    sp.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
+    sp.GetRequiredService<ChatHistoryProvider>()));
 
 builder.Build().Run();

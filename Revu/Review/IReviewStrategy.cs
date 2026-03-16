@@ -5,7 +5,7 @@ namespace Revu.Review;
 
 public interface IReviewStrategy
 {
-    Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CodeGraphQuery? codeGraph = null, CancellationToken ct = default);
+    Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, PrContext prContext, CodeGraphQuery? codeGraph = null, CancellationToken ct = default);
 }
 
 public static class ReviewStrategy

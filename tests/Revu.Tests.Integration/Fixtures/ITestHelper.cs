@@ -11,4 +11,6 @@ public interface ITestHelper
     ReviewRequest BuildRequest(int prId, string sourceBranch, string targetBranch = "refs/heads/main");
     Task<int> GetRevuCommentCount(ReviewRequest req);
     Task PrintComments(ReviewRequest req, ITestOutputHelper output);
+    Task<int> PostCommentOnRevuThread(ReviewRequest req, string message);
+    Task<(int CommentId, string Message)> FindLatestHumanComment(ReviewRequest req);
 }

@@ -1,23 +1,37 @@
 using System.Diagnostics;
 using System.Text;
 
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Revu.CodeGraph;
+using Revu.Git;
 using Revu.Infra;
+using Revu.Infra.AI;
 using Revu.Infra.Cosmos;
+using Revu.Infra.Middleware;
 using Revu.Infra.Telemetry;
 
 namespace Revu.Review;
 
-public class Reviewer(Func<string, IReviewStrategy> strategyFactory, ICodeGraphStore codeGraphStore, IOptions<RevuOptions> options, ILogger<Reviewer> logger)
+public class Reviewer(
+    Func<string, IReviewStrategy> strategyFactory,
+    ICodeGraphStore codeGraphStore,
+    IOptions<RevuOptions> options,
+    ILogger<Reviewer> logger,
+    IChatClient chatClient,
+    ChatHistoryProvider sessionProvider)
 {
     private const int DefaultMaxComments = 5;
     private const int MaxInlineLineSpan = 20;
     private const int MaxCodeFixLineSpan = 15;
+    private const int ChatMaxRoundtrips = 3;
+    private const string ChatMarker = "<!-- revu:chat -->";
 
-    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CancellationToken ct = default)
+    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, PrContext prContext, CancellationToken ct = default)
     {
         var tags = new TagList
         {
@@ -29,7 +43,7 @@ public class Reviewer(Func<string, IReviewStrategy> strategyFactory, ICodeGraphS
         var codeGraph = graphDocs is { Count: > 0 } ? new CodeGraphQuery(graphDocs) : null;
 
         var strategy = strategyFactory(config.Review.Strategy ?? ReviewStrategy.Core);
-        var result = await strategy.Review(req, diff, config, codeGraph, ct);
+        var result = await strategy.Review(req, diff, config, prContext, codeGraph, ct);
 
         // Only allow findings on files actually changed in this PR — context files fetched by
         // investigators are read-only reference material and can't be anchored in ADO.
@@ -83,6 +97,114 @@ public class Reviewer(Func<string, IReviewStrategy> strategyFactory, ICodeGraphS
         if (path.Length > 2 && char.IsLetter(path[0]) && path[1] == '/')
             path = path[2..];
         return path.TrimStart('/');
+    }
+
+    public async Task<string> Chat(ReviewRequest req, IGitConnector git, ReviewSnapshot? snapshot, ChatThreadContext threadContext, string userMessage, CancellationToken ct = default)
+    {
+        var tools = new ReviewerTools(git, req, new Diff([]));
+        var systemPrompt = BuildChatPrompt(snapshot, threadContext);
+
+        var agent = chatClient
+            .AsBuilder()
+            .UseFunctionInvocation(null, fic =>
+            {
+                fic.MaximumIterationsPerRequest = ChatMaxRoundtrips;
+                fic.AllowConcurrentInvocation = true;
+            })
+            .Build()
+            .AsAIAgent(new ChatClientAgentOptions
+            {
+                Name = "ChatAgent",
+                ChatOptions = new ChatOptions
+                {
+                    Instructions = systemPrompt,
+                    Tools =
+                    [
+                        AIFunctionFactory.Create(tools.FetchFile),
+                        AIFunctionFactory.Create(tools.ListDirectory),
+                        AIFunctionFactory.Create(tools.SearchCode),
+                        AIFunctionFactory.Create(tools.QueryCodeGraph),
+                    ],
+                    AllowMultipleToolCalls = true
+                },
+                ChatHistoryProvider = sessionProvider
+            })
+            .AsBuilder()
+            .UseOpenTelemetry(sourceName: Telemetry.ServiceName, configure: c => c.EnableSensitiveData = true)
+            .Use(runFunc: (msgs, s, o, agent, token) => AgentErrorMiddleware.Handle(msgs, s, o, agent, token, logger),
+                runStreamingFunc: null)
+            .Build();
+
+        var session = await agent.CreateSessionAsync(cancellationToken: ct);
+        session.StateBag.SetValue(SessionKeys.ConversationId, $"chat-{req.RepositoryId}-{req.PullRequestId}");
+
+        var response = await agent.RunAsync(userMessage, session, cancellationToken: ct);
+        return response.Messages.LastOrDefault()?.Text
+            ?? "I wasn't able to generate a response. Please try again.";
+    }
+
+    internal static string BuildChatPrompt(ReviewSnapshot? snapshot, ChatThreadContext threadContext)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(Prompts.ChatInstructions);
+
+        if (snapshot is not null)
+        {
+            sb.AppendLine("\n<review_snapshot>");
+            sb.AppendLine($"PR Title: {snapshot.PrTitle}");
+            if (!string.IsNullOrWhiteSpace(snapshot.PrDescription))
+                sb.AppendLine($"PR Description: {snapshot.PrDescription}");
+
+            sb.AppendLine($"\nReview Summary:\n{snapshot.Result.Summary}");
+
+            if (snapshot.Result.Findings.Count > 0)
+            {
+                sb.AppendLine("\nPosted Findings:");
+                foreach (var f in snapshot.Result.Findings)
+                    sb.AppendLine($"- [{f.Severity}] `{f.FilePath}:{f.StartLine}`: {f.Message}");
+            }
+
+            if (snapshot.Files.Count > 0)
+            {
+                sb.AppendLine("\nReviewed Files:");
+                foreach (var f in snapshot.Files)
+                    sb.AppendLine($"- {f.Path} ({f.Kind})");
+            }
+
+            sb.AppendLine("</review_snapshot>");
+        }
+
+        if (threadContext.FilePath is not null)
+        {
+            sb.AppendLine("\n<thread_anchor>");
+            sb.AppendLine($"File: {threadContext.FilePath}");
+            if (threadContext.StartLine is not null)
+                sb.AppendLine($"Line: {threadContext.StartLine}");
+
+            if (threadContext.Fingerprint is not null && snapshot is not null)
+            {
+                var matchedFinding = snapshot.Result.Findings
+                    .FirstOrDefault(f => Finding.Fingerprint(f) == threadContext.Fingerprint);
+                if (matchedFinding is not null)
+                    sb.AppendLine($"Finding: [{matchedFinding.Severity}] {matchedFinding.Message}");
+            }
+
+            sb.AppendLine("</thread_anchor>");
+        }
+
+        var humanMessages = threadContext.ThreadMessages
+            .Where(m => !m.StartsWith(ChatMarker))
+            .ToList();
+
+        if (humanMessages.Count > 0)
+        {
+            sb.AppendLine("\n<thread_conversation>");
+            foreach (var msg in humanMessages)
+                sb.AppendLine(msg);
+            sb.AppendLine("</thread_conversation>");
+        }
+
+        return sb.ToString();
     }
 
     private static string BuildSummary(string modelSummary, List<Finding> summaryFindings)

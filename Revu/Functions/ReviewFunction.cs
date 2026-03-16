@@ -36,10 +36,17 @@ public class ReviewFunction(
             return;
         }
 
-        var findings = await reviewer.Review(req, diff, config);
+        var prContext = await git.GetPrContext(req);
+        var findings = await reviewer.Review(req, diff, config, prContext);
         await git.PostReview(req, diff, findings);
 
+        var snapshot = new ReviewSnapshot(
+            findings,
+            diff.Files.Select(f => new ReviewedFile(f.Path, f.Kind)).ToList(),
+            prContext.Title,
+            prContext.Description);
+
         logger.LogInformation("Posted {Count} findings for PR #{PrId}", findings.Findings.Count, req.PullRequestId);
-        await reviewStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor, ReviewStatus.Completed, findings.Findings.Count, req.ConversationId);
+        await reviewStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor, ReviewStatus.Completed, findings.Findings.Count, req.ConversationId, snapshot);
     }
 }

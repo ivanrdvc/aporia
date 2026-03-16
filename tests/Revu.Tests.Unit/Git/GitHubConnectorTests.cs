@@ -9,8 +9,8 @@ public class GitHubConnectorTests
     {
         var finding = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref here");
 
-        var a = GitHubConnector.Fingerprint(finding);
-        var b = GitHubConnector.Fingerprint(finding);
+        var a = Finding.Fingerprint(finding);
+        var b = Finding.Fingerprint(finding);
 
         Assert.Equal(a, b);
     }
@@ -21,7 +21,7 @@ public class GitHubConnectorTests
         var a = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref here");
         var b = new Finding("src/Foo.cs", 20, 25, Severity.Critical, "Null ref here");
 
-        Assert.Equal(GitHubConnector.Fingerprint(a), GitHubConnector.Fingerprint(b));
+        Assert.Equal(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class GitHubConnectorTests
         var a = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref here");
         var b = new Finding("src/Foo.cs", 10, 15, Severity.Info, "Null ref here");
 
-        Assert.Equal(GitHubConnector.Fingerprint(a), GitHubConnector.Fingerprint(b));
+        Assert.Equal(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class GitHubConnectorTests
         var a = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref here");
         var b = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Race condition");
 
-        Assert.NotEqual(GitHubConnector.Fingerprint(a), GitHubConnector.Fingerprint(b));
+        Assert.NotEqual(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class GitHubConnectorTests
         var a = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref here");
         var b = new Finding("src/Bar.cs", 10, 15, Severity.Critical, "Null ref here");
 
-        Assert.NotEqual(GitHubConnector.Fingerprint(a), GitHubConnector.Fingerprint(b));
+        Assert.NotEqual(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class GitHubConnectorTests
         var a = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null Ref Here");
         var b = new Finding("SRC/FOO.CS", 10, 15, Severity.Critical, "null ref here");
 
-        Assert.Equal(GitHubConnector.Fingerprint(a), GitHubConnector.Fingerprint(b));
+        Assert.Equal(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class GitHubConnectorTests
         var a = new Finding("/src/Foo.cs", 10, 15, Severity.Critical, "Null ref");
         var b = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref");
 
-        Assert.Equal(GitHubConnector.Fingerprint(a), GitHubConnector.Fingerprint(b));
+        Assert.Equal(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class GitHubConnectorTests
         var a = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "  Null ref  ");
         var b = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref");
 
-        Assert.Equal(GitHubConnector.Fingerprint(a), GitHubConnector.Fingerprint(b));
+        Assert.Equal(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class GitHubConnectorTests
         var finding = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref here");
 
         Assert.Equal(
-            AdoConnector.Fingerprint(finding),
-            GitHubConnector.Fingerprint(finding));
+            Finding.Fingerprint(finding),
+            Finding.Fingerprint(finding));
     }
 }
