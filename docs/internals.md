@@ -77,6 +77,28 @@ Single database (`revu`), one Cosmos account. All stores are singletons that tak
 
 # Local testing
 
-Queue names are configurable via `%ReviewQueue%`, `%ChatQueue%`, `%IndexQueue%` app settings — used by both triggers (consumers) and output bindings (producers). Prod uses `review-queue` / `chat-queue` / `index-queue`; local uses `*-dev` variants so the two never compete for messages.
+Local development uses real Azure Storage for queues (Azurite is incompatible with the current
+SDK). The connection string in `local.settings.json` points to the dev storage account. Isolation
+from prod relies on the deployed function app not running concurrently.
 
-To test with real ADO webhooks locally: run `devtunnel host -p 7071 --allow-anonymous`, create an ADO service hook for `Pull request commented on` pointing at `{tunnel-url}/api/webhook/ado/comment`, then `func start` — comments with `@revu` on any registered repo will flow through the local pipeline.
+To test with real ADO webhooks locally: create a persistent dev tunnel so the URL survives
+restarts (no need to update ADO each time):
+
+```bash
+devtunnel create revu --allow-anonymous
+devtunnel port create revu -p 7071
+devtunnel host revu          # prints the fixed URL
+```
+
+On subsequent sessions, just `devtunnel host revu` — same URL.
+
+ADO service hooks needed for local testing:
+
+| Event | Route | Triggers |
+|---|---|---|
+| `Pull request created` | `{tunnel-url}/api/webhook/ado` | Review pipeline |
+| `Pull request updated` | `{tunnel-url}/api/webhook/ado` | Incremental review |
+| `Pull request commented on` | `{tunnel-url}/api/webhook/ado/comment` | Chat pipeline |
+
+Then `func start` — PR events and `@revu` comments on any registered repo will flow through
+the local pipeline.

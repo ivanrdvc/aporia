@@ -72,8 +72,27 @@
       }
     },
     {
+      "label": "start azurite",
+      "type": "shell",
+      "command": "azurite --silent --location ${workspaceFolder}/.azurite",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$$never$$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Azurite",
+          "endsPattern": "^Azurite .+ service is successfully listening"
+        }
+      }
+    },
+    {
       "type": "func",
-      "dependsOn": "build (functions)",
+      "dependsOn": [
+        "build (functions)",
+        "start azurite"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/Revu/bin/Debug/net10.0"
       },

@@ -23,10 +23,11 @@ public class AdoConnector(
 {
     private const string RevuVersion = "revu:version";
     private const string RevuFingerprint = "revu:fingerprint";
+    private const string RevuReviewMarker = "<!-- revu:review -->";
     private const int MaxChangeEntries = 5000;
 
-    internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = new();
-    internal readonly ConcurrentDictionary<string, HttpClient> _searchClients = new();
+    internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = [];
+    internal readonly ConcurrentDictionary<string, HttpClient> _searchClients = [];
 
     private GitHttpClient GetGitClient(string org) =>
         _gitClients.GetOrAdd(org, key =>
@@ -217,7 +218,7 @@ public class AdoConnector(
 
             var thread = new GitPullRequestCommentThread
             {
-                Comments = [new Comment { Content = FormatComment(finding), CommentType = CommentType.Text }],
+                Comments = [new Comment { Content = $"{RevuReviewMarker}\n{FormatComment(finding)}", CommentType = CommentType.Text }],
                 Status = CommentThreadStatus.Active,
                 Properties = new PropertiesCollection
                 {
@@ -243,7 +244,7 @@ public class AdoConnector(
         {
             var summaryThread = new GitPullRequestCommentThread
             {
-                Comments = [new Comment { Content = result.Summary, CommentType = CommentType.Text }],
+                Comments = [new Comment { Content = $"{RevuReviewMarker}\n{result.Summary}", CommentType = CommentType.Text }],
                 Properties = new PropertiesCollection { { RevuVersion, "1" } },
                 Status = CommentThreadStatus.Closed
             };
@@ -368,14 +369,19 @@ public class AdoConnector(
         if (thread is null || thread.IsDeleted || thread.Comments is null)
             return null;
 
+        var comment = thread.Comments.FirstOrDefault(c => c.Id == commentId);
+        if (comment?.Content is null)
+            return null;
+
+        // Ignore Revu's own comments (review findings, summary, chat replies)
+        if (comment.Content.StartsWith("<!-- revu:"))
+            return null;
+
         var isRevuThread = thread.Properties?.GetValue<string>(RevuVersion, null!) is not null;
 
-        if (!isRevuThread)
-        {
-            var comment = thread.Comments.FirstOrDefault(c => c.Id == commentId);
-            if (comment?.Content?.Contains("@revu", StringComparison.OrdinalIgnoreCase) != true)
-                return null;
-        }
+        // On non-Revu threads, only respond if explicitly mentioned
+        if (!isRevuThread && !comment.Content.Contains("@revu", StringComparison.OrdinalIgnoreCase))
+            return null;
 
         var fingerprint = thread.Properties?.GetValue<string>(RevuFingerprint, null!);
         var filePath = thread.ThreadContext?.FilePath;

@@ -10,59 +10,64 @@ AI code review for pull requests.
 - **Committable suggestions** — one-click apply code suggestions from the review
 - **PR summaries** — per-file overview of what changed in the PR
 - **Incremental reviews** — only reviews new iterations, skips already-reviewed changes
-- **Chat with bot** *(planned)* — interactive conversation with the reviewer on the PR
+- **PR chat** — reply to a finding or mention `@revu` anywhere on the PR for a follow-up conversation
 - **Review skills** — on-demand domain knowledge (security, framework patterns, etc.) loaded by the reviewer when relevant
 
 ## Run locally
 
-### 1) Install prerequisites
+Prerequisites: [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local),
+[Docker](https://docs.docker.com/get-docker/) (optional, for OpenObserve).
 
-- [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local)
-- [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) (for local queue storage)
-- [Docker](https://docs.docker.com/get-docker/) (optional, only for OpenObserve)
-- [Python 3](https://www.python.org/downloads/) (optional, only for the eval verify script in `.claude/skills/test/scripts/verify.py`)
-
-### 2) Configure secrets
-
-All projects (eval, unit tests, integration tests) share a single `UserSecretsId` and read AI
-credentials from [.NET user secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets).
-The only exception is the Azure Functions host, which reads from `local.settings.json`.
-
-```bash
-cd Revu
-# Azure OpenAI
-dotnet user-secrets set "Ai:AzureOpenAI:Endpoint" "https://your-endpoint.openai.azure.com"
-dotnet user-secrets set "Ai:AzureOpenAI:ApiKey" "your-key"
-# — or OpenAI directly —
-dotnet user-secrets set "Ai:OpenAI:ApiKey" "sk-..."
-```
-
-
-### 3) Configure Azure Functions host
-
-Copy the template and fill in ADO org, PAT (Code Read/Write scope), and AI keys:
+Copy the template and fill in your ADO org, PAT (Code Read/Write scope), and AI keys:
 
 ```bash
 cp Revu/local.settings.example.json Revu/local.settings.json
 ```
 
-This file is gitignored.
-
-### 4) Optional: start OpenObserve for observability
+Configure AI credentials in [.NET user secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets)
+(shared by all test projects):
 
 ```bash
-docker run --rm -it -p 5080:5080 -e ZO_ROOT_USER_EMAIL=root@example.com -e ZO_ROOT_USER_PASSWORD=Complexpass#123 --name openobserve openobserve/openobserve:latest
+cd Revu
+dotnet user-secrets set "Ai:Anthropic:ApiKey" "sk-ant-..."
 ```
 
-Observability data (logs, traces, metrics) is available at http://localhost:5080 (see [docs/observability.md](docs/observability.md)).
+Start the function host:
+
+```bash
+cd Revu
+func start
+```
+
+To receive real ADO/GitHub webhooks locally, create a persistent dev tunnel:
+
+```bash
+devtunnel create revu --allow-anonymous
+devtunnel port create revu -p 7071
+devtunnel host revu
+```
+
+Then point your ADO service hooks at `{tunnel-url}/api/webhook/ado` (PR created/updated) and
+`{tunnel-url}/api/webhook/ado/comment` (PR commented on). See [docs/setup.md](docs/setup.md)
+for full deployment and webhook configuration.
+
+Optional: start [OpenObserve](https://openobserve.ai/) for local observability (logs, traces, metrics):
+
+```bash
+docker run --rm -it -p 5080:5080 \
+  -e ZO_ROOT_USER_EMAIL=root@example.com \
+  -e ZO_ROOT_USER_PASSWORD=Complexpass#123 \
+  --name openobserve openobserve/openobserve:latest
+```
+
+Dashboard at http://localhost:5080 (see [docs/observability.md](docs/observability.md)).
 
 ## Getting started
 
 Revu only reviews registered repositories. Unregistered repos are silently ignored. To enroll a
-repo, register it via `POST /api/manage/repos` (requires a function key), then create an Azure
-DevOps **Service Hook** for PR created/updated events pointing at
-`https://<your-revu-host>/api/webhook/ado`. Optionally drop a `.revu.json` in the repo root to
-customize review behavior (see [Configuration](#configuration)).
+repo, register it via `POST /api/manage/repos` (requires a function key), then create service
+hooks for PR events. Optionally drop a `.revu.json` in the repo root to customize review behavior
+(see [Configuration](#configuration)).
 
 ## Configuration
 
@@ -98,6 +103,6 @@ are optional; sensible defaults apply when omitted.
 ### Skills
 
 Revu ships with built-in review skills: domain-specific knowledge the reviewer loads on demand
-when a PR touches a relevant area. 
+when a PR touches a relevant area.
 
 Each skill is a `SKILL.md` file under `Revu/Skills/` containing domain-specific review criteria.

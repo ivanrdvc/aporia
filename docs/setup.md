@@ -8,7 +8,7 @@ az ad sp create-for-rbac --name revu-deploy --role contributor \
 ```
 
 Add the JSON output as `AZURE_CREDENTIALS` in GitHub (Settings → Environments → `prod`).
-Also add: `AI_OPENAI_KEY`, `AI_ANTHROPIC_KEY`. Push to `main` deploys automatically.
+Also add: `AI_ANTHROPIC_KEY`. Push to `main` deploys automatically.
 
 ## Adding a repository
 
@@ -32,13 +32,18 @@ curl -X POST "https://func-revu.azurewebsites.net/api/manage/repos?code=<functio
 
 Get the function key: `az functionapp keys list -n func-revu -g rg-revu-prod`
 
-#### 3. Set up the webhook in ADO
+#### 3. Set up webhooks in ADO
 
-**Project Settings → Service Hooks → Web Hooks → Pull request created/updated**:
+**Project Settings → Service Hooks → Web Hooks**:
 
-```
-https://func-revu.azurewebsites.net/api/webhook/ado?code=<function-key>
-```
+| Event | URL |
+|---|---|
+| Pull request created | `https://func-revu.azurewebsites.net/api/webhook/ado?code=<function-key>` |
+| Pull request updated | `https://func-revu.azurewebsites.net/api/webhook/ado?code=<function-key>` |
+| Pull request commented on | `https://func-revu.azurewebsites.net/api/webhook/ado/comment?code=<function-key>` |
+
+The first two trigger reviews. The third enables [PR chat](features/pr-chat.md) — replies on
+Revu threads and `@revu` mentions.
 
 ### GitHub
 

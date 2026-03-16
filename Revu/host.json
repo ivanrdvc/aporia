@@ -4,9 +4,12 @@
   "logging": {
     "logLevel": {
       "default": "Information",
-      "Azure.Core": "Warning",
+      "Azure": "Warning",
       "Host": "Warning",
+      "Host.Startup": "Error",
+      "Microsoft.AspNetCore": "Warning",
       "Microsoft.Azure.WebJobs": "Warning",
+      "Microsoft.Hosting": "Warning",
       "Worker": "Warning",
       "Function": "Information"
     }

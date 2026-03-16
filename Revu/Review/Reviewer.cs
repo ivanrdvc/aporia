@@ -99,10 +99,10 @@ public class Reviewer(
         return path.TrimStart('/');
     }
 
-    public async Task<string> Chat(ReviewRequest req, IGitConnector git, ReviewSnapshot? snapshot, ChatThreadContext threadContext, string userMessage, CancellationToken ct = default)
+    public async Task<string> Chat(ReviewRequest req, IGitConnector git, ChatThreadContext threadContext, string userMessage, CancellationToken ct = default)
     {
         var tools = new ReviewerTools(git, req, new Diff([]));
-        var systemPrompt = BuildChatPrompt(snapshot, threadContext);
+        var systemPrompt = BuildChatPrompt(threadContext);
 
         var agent = chatClient
             .AsBuilder()
@@ -135,51 +135,20 @@ public class Reviewer(
                 runStreamingFunc: null)
             .Build();
 
+        // Continue the review session — if Revu reviewed this PR, the agent picks up
+        // with full context (diffs, findings, tool calls). If not, starts fresh.
         var session = await agent.CreateSessionAsync(cancellationToken: ct);
-        session.StateBag.SetValue(SessionKeys.ConversationId, $"chat-{req.RepositoryId}-{req.PullRequestId}");
+        session.StateBag.SetValue(SessionKeys.ConversationId, req.ConversationId);
 
         var response = await agent.RunAsync(userMessage, session, cancellationToken: ct);
         return response.Messages.LastOrDefault()?.Text
             ?? "I wasn't able to generate a response. Please try again.";
     }
 
-    internal static string BuildChatPrompt(ReviewSnapshot? snapshot, ChatThreadContext threadContext)
+    internal static string BuildChatPrompt(ChatThreadContext threadContext)
     {
         var sb = new StringBuilder();
         sb.AppendLine(Prompts.ChatInstructions);
-
-        if (snapshot is null)
-        {
-            sb.AppendLine("\n<review_snapshot>");
-            sb.AppendLine("No prior review found for this PR. You have no review findings to reference.");
-            sb.AppendLine("Use your tools to investigate the codebase if needed.");
-            sb.AppendLine("</review_snapshot>");
-        }
-        else
-        {
-            sb.AppendLine("\n<review_snapshot>");
-            sb.AppendLine($"PR Title: {snapshot.PrTitle}");
-            if (!string.IsNullOrWhiteSpace(snapshot.PrDescription))
-                sb.AppendLine($"PR Description: {snapshot.PrDescription}");
-
-            sb.AppendLine($"\nReview Summary:\n{snapshot.Result.Summary}");
-
-            if (snapshot.Result.Findings.Count > 0)
-            {
-                sb.AppendLine("\nPosted Findings:");
-                foreach (var f in snapshot.Result.Findings)
-                    sb.AppendLine($"- [{f.Severity}] `{f.FilePath}:{f.StartLine}`: {f.Message}");
-            }
-
-            if (snapshot.Files.Count > 0)
-            {
-                sb.AppendLine("\nReviewed Files:");
-                foreach (var f in snapshot.Files)
-                    sb.AppendLine($"- {f.Path} ({f.Kind})");
-            }
-
-            sb.AppendLine("</review_snapshot>");
-        }
 
         if (threadContext.FilePath is not null)
         {
@@ -187,15 +156,6 @@ public class Reviewer(
             sb.AppendLine($"File: {threadContext.FilePath}");
             if (threadContext.StartLine is not null)
                 sb.AppendLine($"Line: {threadContext.StartLine}");
-
-            if (threadContext.Fingerprint is not null && snapshot is not null)
-            {
-                var matchedFinding = snapshot.Result.Findings
-                    .FirstOrDefault(f => Finding.Fingerprint(f) == threadContext.Fingerprint);
-                if (matchedFinding is not null)
-                    sb.AppendLine($"Finding: [{matchedFinding.Severity}] {matchedFinding.Message}");
-            }
-
             sb.AppendLine("</thread_anchor>");
         }
 

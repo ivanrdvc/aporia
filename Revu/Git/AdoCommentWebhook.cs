@@ -9,6 +9,7 @@ namespace Revu.Git;
 public record AdoCommentWebhook(string EventType, AdoCommentResource Resource, AdoResourceContainers? ResourceContainers)
 {
     private const string ChatMarker = "<!-- revu:chat -->";
+    private const string ReviewMarker = "<!-- revu:review -->";
 
     public ChatRequest? ToChatRequest()
     {
@@ -23,8 +24,8 @@ public record AdoCommentWebhook(string EventType, AdoCommentResource Resource, A
         if (comment.PublishedDate != comment.LastContentUpdatedDate)
             return null;
 
-        // Self-reply loop prevention
-        if (comment.Content.StartsWith(ChatMarker))
+        // Ignore Revu's own comments (review findings, summary, and chat replies)
+        if (comment.Content.StartsWith(ChatMarker) || comment.Content.StartsWith(ReviewMarker))
             return null;
 
         var pr = Resource.PullRequest;

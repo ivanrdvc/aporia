@@ -37,13 +37,8 @@ public class ChatTests(
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
         await Git.PostReview(TestEvent, diff, result);
 
-        var snapshot = new ReviewSnapshot(
-            result,
-            diff.Files.Select(f => new ReviewedFile(f.Path, f.Kind)).ToList(),
-            prContext.Title,
-            prContext.Description);
         await ReviewStore.SaveAsync(TestEvent.RepositoryId, TestEvent.PullRequestId, diff.Cursor,
-            ReviewStatus.Completed, result.Findings.Count, TestEvent.ConversationId, snapshot);
+            ReviewStatus.Completed, result.Findings.Count, TestEvent.ConversationId);
 
         Output.WriteLine($"Review posted: {result.Findings.Count} findings");
 
@@ -53,9 +48,7 @@ public class ChatTests(
         var threadContext = await Git.GetChatThreadContext(TestEvent, threadId, commentId);
         Assert.NotNull(threadContext);
 
-        var loadedSnapshot = await ReviewStore.GetLatestSnapshotAsync(TestEvent.RepositoryId, TestEvent.PullRequestId);
-
-        var reply = await Reviewer.Chat(TestEvent, Git, loadedSnapshot, threadContext, "Why did you flag this? Can you explain?");
+        var reply = await Reviewer.Chat(TestEvent, Git, threadContext, "Why did you flag this? Can you explain?");
         Output.WriteLine($"Chat reply ({reply.Length} chars):\n{reply}");
 
         await Git.PostChatReply(TestEvent, threadContext.ThreadId, reply);
@@ -104,10 +97,7 @@ public class ChatTests(
 
         Output.WriteLine($"User message: {userMessage}");
 
-        var snapshot = await ReviewStore.GetLatestSnapshotAsync(TestEvent.RepositoryId, TestEvent.PullRequestId);
-        Output.WriteLine($"Snapshot: {(snapshot is not null ? $"{snapshot.Result.Findings.Count} findings" : "none")}");
-
-        var reply = await Reviewer.Chat(TestEvent, Git, snapshot, threadContext, userMessage);
+        var reply = await Reviewer.Chat(TestEvent, Git, threadContext, userMessage);
         Output.WriteLine($"Chat reply ({reply.Length} chars):\n{reply}");
 
         await Git.PostChatReply(TestEvent, threadContext.ThreadId, reply);

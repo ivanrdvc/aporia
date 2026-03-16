@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Revu.Git;
-using Revu.Infra.Cosmos;
 using Revu.Review;
 
 namespace Revu.Functions;
@@ -11,7 +10,6 @@ namespace Revu.Functions;
 public class ChatFunction(
     IServiceProvider sp,
     Reviewer reviewer,
-    IReviewStore reviewStore,
     ILogger<ChatFunction> logger)
 {
     [Function("ChatProcessor")]
@@ -21,12 +19,7 @@ public class ChatFunction(
 
         var git = sp.GetRequiredKeyedService<IGitConnector>(req.Review.Provider);
 
-        var threadTask = git.GetChatThreadContext(req.Review, req.ThreadId, req.CommentId);
-        var snapshotTask = reviewStore.GetLatestSnapshotAsync(req.Review.RepositoryId, req.Review.PullRequestId);
-        await Task.WhenAll(threadTask, snapshotTask);
-
-        var threadContext = threadTask.Result;
-        var snapshot = snapshotTask.Result;
+        var threadContext = await git.GetChatThreadContext(req.Review, req.ThreadId, req.CommentId);
 
         if (threadContext is null)
         {
@@ -34,7 +27,7 @@ public class ChatFunction(
             return;
         }
 
-        var reply = await reviewer.Chat(req.Review, git, snapshot, threadContext, req.UserMessage);
+        var reply = await reviewer.Chat(req.Review, git, threadContext, req.UserMessage);
         await git.PostChatReply(req.Review, threadContext.ThreadId, reply);
 
         logger.LogInformation("Posted chat reply to thread {ThreadId} for PR #{PrId}", threadContext.ThreadId, req.Review.PullRequestId);
