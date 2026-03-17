@@ -6,6 +6,7 @@ public class RevuOptions
     public bool EnableIncrementalReviews { get; init; }
     public bool EnableCodeGraph { get; init; } = true;
     public bool EnableChat { get; init; }
+    public bool EnableWorkItems { get; init; }
 }
 
 public static class SessionKeys

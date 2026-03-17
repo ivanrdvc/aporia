@@ -62,6 +62,30 @@ public class ReviewTests(
     }
 
     [Fact]
+    public async Task Review_WithWorkItems_IncludesWorkItemContext()
+    {
+        await ResetReviewState(TestEvent);
+
+        var prContext = await Git.GetPrContext(TestEvent);
+
+        Output.WriteLine($"Work items: {prContext.WorkItems?.Count ?? 0}");
+        if (prContext.WorkItems is { Count: > 0 })
+        {
+            foreach (var wi in prContext.WorkItems)
+            {
+                Output.WriteLine($"  [{wi.Type}] {wi.Title}");
+                Output.WriteLine($"    Description: {wi.Description?[..Math.Min(100, wi.Description?.Length ?? 0)]}...");
+                Output.WriteLine($"    AcceptanceCriteria: {wi.AcceptanceCriteria?[..Math.Min(100, wi.AcceptanceCriteria?.Length ?? 0)]}...");
+                if (wi.Parent is not null)
+                    Output.WriteLine($"    Parent: [{wi.Parent.Type}] {wi.Parent.Title}");
+            }
+        }
+
+        Assert.NotNull(prContext.WorkItems);
+        Assert.NotEmpty(prContext.WorkItems);
+    }
+
+    [Fact]
     public async Task SelfReview_FullPipeline()
     {
         var target = Scenarios.SelfReview;

@@ -12,17 +12,26 @@ argument-hint: "[profile-hint | session]"
 |---|---|
 | `/test` | Use default profile (`TestProfile` in JSON), create fresh PR, run pipeline, verify, close PR |
 | `/test <hint>` | Fuzzy-match a profile name from `TestProfiles`, then run. E.g. `/test ado`, `/test eshop`, `/test gh` |
+| `/test <hint or description>` | Natural language — profile hint, PR reference, link, or any combo. See below. |
 | `/test session [session-dir]` | Analyze latest (or specified) session |
 
 ### Profile resolution
 
 1. Read `appsettings.test.json` and get the keys from `TestProfiles`.
 2. If no argument (bare `/test`), use the `TestProfile` value from JSON.
-3. If argument given, find all profile names containing the hint (case-insensitive).
-   - Exactly one match → use it.
-   - Multiple matches → list them and ask the user which one.
-   - Zero matches → tell the user no profile matched and list available ones.
-4. The matched profile has `Provider` inside it — use that to pick the right procedure (GitHub or ADO).
+3. Parse the arguments as natural language. Extract:
+   - **Profile hint** — match against `TestProfiles` keys (case-insensitive substring).
+     Exactly one match → use it. Multiple → ask. Zero → list available.
+   - **Existing PR** — if the user references a specific PR (by number, URL, name, or
+     description), this is an existing-PR run. Skip create/cleanup (steps 1 and 5).
+     Determine PR ID and source branch:
+     - If a URL is given, extract the PR ID from the path.
+     - If a PR number is given, use it directly.
+     - Get the source branch: ADO `az repos pr show --id {id} ...`, GitHub `gh pr view`.
+   - **Repo override** — if the user names a repo different from the profile's
+     `RepositoryName`, find the matching profile or pass `TestTarget__RepositoryName`.
+4. The matched profile has `Provider` inside it — use that to pick the right procedure.
+5. If an existing PR was identified, run steps 2–4 only. Do not create or close the PR.
 
 ---
 

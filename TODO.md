@@ -6,6 +6,7 @@
 - Merge overlapping findings on same line range before posting
 - Pin `GetFile`/`ListFiles` to iteration commit SHA instead of branch tip
 - `CodeGraphIndexer` was registered as singleton with non-keyed `IGitConnector` — broke DI validation locally after keyed services were introduced. Temp-fixed by resolving via `IServiceProvider` at runtime. Should align with `IndexFunction`'s provider from `IndexRequest`.
+- Split `IGitConnector` — interface is too broad (pipeline + tools + chat). Consider splitting into focused interfaces (e.g. core pipeline, code browsing, chat) while keeping shared implementations.
 
 ## Features
 

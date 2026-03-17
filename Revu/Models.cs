@@ -23,7 +23,15 @@ public record ReviewRequest(
 
 public record Diff(List<FileChange> Files, string? Cursor = null);
 
-public record PrContext(string Title, string? Description, IReadOnlyList<string> CommitMessages);
+public record PrContext(string Title, string? Description, IReadOnlyList<string> CommitMessages, IReadOnlyList<WorkItemContext>? WorkItems = null);
+
+public record WorkItemContext(
+    string Type,
+    string Title,
+    string? Description,
+    string? AcceptanceCriteria,
+    WorkItemContext? Parent
+);
 
 public record FileChange(
     string Path,

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-using Revu.Git;
 using Revu.Infra.Cosmos;
 using Revu.Tests.Integration.Fixtures;
 
