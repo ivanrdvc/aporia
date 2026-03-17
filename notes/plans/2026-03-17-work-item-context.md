@@ -1,6 +1,6 @@
 ---
 date: 2026-03-17
-status: draft
+status: done
 tags: [review-quality, ado]
 ---
 
@@ -54,7 +54,7 @@ ADO work item fields to extract:
 - `System.WorkItemType` → Type
 - `System.Title` → Title
 - `System.Description` → Description (strip HTML, cap 1500 chars)
-- `Microsoft.VNET.Common.AcceptanceCriteria` → AcceptanceCriteria (strip HTML, cap 1500 chars)
+- `Microsoft.VSTS.Common.AcceptanceCriteria` → AcceptanceCriteria (strip HTML, cap 1500 chars)
 
 Parent resolution: read `System.Parent` field (int, nullable). If present, fetch the parent
 work item and populate `Parent` with the same field extraction. No relation expansion needed.
@@ -132,7 +132,7 @@ Description: [cleaned description]
      - Call `GitHttpClient.GetPullRequestWorkItemRefsAsync()` to get linked work item refs
      - For each ref, call `WorkItemTrackingHttpClient.GetWorkItemAsync(id, expand: Relations)`
      - Extract fields: `System.WorkItemType`, `System.Title`, `System.Description`,
-       `Microsoft.VNET.Common.AcceptanceCriteria`
+       `Microsoft.VSTS.Common.AcceptanceCriteria`
      - Strip HTML from Description and AcceptanceCriteria (simple regex or `HtmlDecode` + tag strip)
      - Cap each text field at 1500 chars with `[truncated]` marker
      - Check `System.Parent` field — if present, fetch parent with same extraction (no recursion)

@@ -60,10 +60,10 @@ public static class AdoWorkItemMapper
         if (string.IsNullOrWhiteSpace(html))
             return null;
 
-        var text = Regex.Replace(html, @"<br\s*/?>|</p>|</li>|</div>|</h\d>", "\n", RegexOptions.IgnoreCase);
+        var text = System.Net.WebUtility.HtmlDecode(html);
+        text = Regex.Replace(text, @"<br\s*/?>|</p>|</li>|</div>|</h\d>", "\n", RegexOptions.IgnoreCase);
         text = Regex.Replace(text, @"<li[^>]*>", "- ", RegexOptions.IgnoreCase);
-        text = Regex.Replace(text, @"<[^>]+>", "");
-        text = System.Net.WebUtility.HtmlDecode(text);
+        text = Regex.Replace(text, @"</?[A-Za-z][^>]*>", "");
         text = Regex.Replace(text, @"[^\S\n]+", " ");
         text = Regex.Replace(text, @"\n{3,}", "\n\n");
         text = text.Trim();

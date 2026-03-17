@@ -28,7 +28,7 @@ public class IncrementalReviewTests(
         Assert.NotEmpty(diff1.Files);
         Assert.NotNull(diff1.Cursor);
 
-        var prContext = await Git.GetPrContext(TestEvent, config);
+        var prContext = await Git.GetPrContext(TestEvent);
         var result1 = await Reviewer.Review(TestEvent, diff1, config, prContext);
         await Git.PostReview(TestEvent, diff1, result1);
 

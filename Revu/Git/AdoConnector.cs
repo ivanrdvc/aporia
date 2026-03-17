@@ -339,14 +339,14 @@ public class AdoConnector(
             .ToList() ?? [];
     }
 
-    public async Task<PrContext> GetPrContext(ReviewRequest req, ProjectConfig config)
+    public async Task<PrContext> GetPrContext(ReviewRequest req)
     {
         var git = GetGitClient(req.Organization);
         try
         {
             var prTask = git.GetPullRequestByIdAsync(req.PullRequestId, req.Project);
             var commitsTask = git.GetPullRequestCommitsAsync(req.Project, req.RepositoryId, req.PullRequestId);
-            var workItemsTask = config.Review.EnableWorkItems == true
+            var workItemsTask = revuOptions.Value.EnableWorkItems
                 ? FetchWorkItems(req)
                 : Task.FromResult<IReadOnlyList<WorkItemContext>?>(null);
 
@@ -412,7 +412,7 @@ public class AdoConnector(
             var items = AdoWorkItemMapper.MapWithParents(workItems, parentMap);
             return items.Count > 0 ? items : null;
         }
-        catch (Exception ex)
+        catch (VssServiceException ex)
         {
             logger.LogWarning(ex, "Failed to fetch work items for PR #{PrId}", req.PullRequestId);
             return null;

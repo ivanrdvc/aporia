@@ -28,7 +28,7 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var prContext = await Git.GetPrContext(TestEvent, config);
+        var prContext = await Git.GetPrContext(TestEvent);
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
 
         await Git.PostReview(TestEvent, diff, result);
@@ -46,7 +46,7 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var prContext = await Git.GetPrContext(TestEvent, config);
+        var prContext = await Git.GetPrContext(TestEvent);
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
         await Git.PostReview(TestEvent, diff, result);
 
@@ -66,22 +66,7 @@ public class ReviewTests(
     {
         await ResetReviewState(TestEvent);
 
-        var repoConfig = await Git.GetConfig(TestEvent);
-        var config = new ProjectConfig
-        {
-            Review = new ReviewConfig
-            {
-                Strategy = repoConfig.Review.Strategy,
-                MaxComments = repoConfig.Review.MaxComments,
-                EnableWorkItems = true
-            },
-            Files = repoConfig.Files,
-            Rules = repoConfig.Rules,
-            Context = repoConfig.Context
-        };
-
-        var diff = await Git.GetDiff(TestEvent, config);
-        var prContext = await Git.GetPrContext(TestEvent, config);
+        var prContext = await Git.GetPrContext(TestEvent);
 
         Output.WriteLine($"Work items: {prContext.WorkItems?.Count ?? 0}");
         if (prContext.WorkItems is { Count: > 0 })
@@ -108,7 +93,7 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(target);
         var diff = await Git.GetDiff(target, config);
-        var prContext = await Git.GetPrContext(target, config);
+        var prContext = await Git.GetPrContext(target);
         var result = await Reviewer.Review(target, diff, config, prContext);
 
         await Git.PostReview(target, diff, result);
