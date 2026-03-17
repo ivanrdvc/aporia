@@ -44,4 +44,7 @@ public static class Telemetry
 
     public static readonly Counter<int> ExplorationFailures = Meter.CreateCounter<int>(
         "revu.agent.exploration_failures", description: "Explorer invocations that failed or returned invalid output");
+
+    public static readonly Counter<int> AgentMaxTurnsHit = Meter.CreateCounter<int>(
+        "revu.agent.max_turns_hit", description: "Agent runs that ended with a non-completed finish reason");
 }

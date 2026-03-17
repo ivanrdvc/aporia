@@ -143,6 +143,10 @@ public class Reviewer(
         session.StateBag.SetValue(SessionKeys.ConversationId, req.ConversationId);
 
         var response = await agent.RunAsync(userMessage, session, cancellationToken: ct);
+
+        if (response.FinishReason is { } reason && reason != ChatFinishReason.Stop)
+            logger.LogWarning("Chat agent finished with reason {FinishReason}", reason);
+
         return response.Messages.LastOrDefault()?.Text
             ?? "I wasn't able to generate a response. Please try again.";
     }

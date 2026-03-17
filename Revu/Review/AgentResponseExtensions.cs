@@ -1,4 +1,5 @@
 using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 using Revu.Infra;
@@ -16,6 +17,12 @@ internal static class AgentResponseExtensions
     /// </summary>
     internal static T? ExtractResult<T>(this AgentResponse response, ILogger logger) where T : class
     {
+        if (response.FinishReason is { } reason && reason != ChatFinishReason.Stop)
+        {
+            logger.LogWarning("Agent finished with reason {FinishReason}", reason);
+            Telemetry.AgentMaxTurnsHit.Add(1);
+        }
+
         var text = response.Messages.LastOrDefault()?.Text ?? "";
         var result = text.TryParseJson<T>();
 
