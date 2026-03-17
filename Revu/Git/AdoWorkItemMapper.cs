@@ -7,7 +7,7 @@ namespace Revu.Git;
 /// <summary>
 /// Converts ADO work items to <see cref="WorkItemContext"/> with HTML cleaning and field capping.
 /// </summary>
-public static class AdoWorkItemMapper
+public static partial class AdoWorkItemMapper
 {
     public static readonly string[] Fields =
     [
@@ -61,11 +61,11 @@ public static class AdoWorkItemMapper
             return null;
 
         var text = System.Net.WebUtility.HtmlDecode(html);
-        text = Regex.Replace(text, @"<br\s*/?>|</p>|</li>|</div>|</h\d>", "\n", RegexOptions.IgnoreCase);
-        text = Regex.Replace(text, @"<li[^>]*>", "- ", RegexOptions.IgnoreCase);
-        text = Regex.Replace(text, @"</?[A-Za-z][^>]*>", "");
-        text = Regex.Replace(text, @"[^\S\n]+", " ");
-        text = Regex.Replace(text, @"\n{3,}", "\n\n");
+        text = BlockBreakRegex().Replace(text, "\n");
+        text = ListItemRegex().Replace(text, "- ");
+        text = AnyTagRegex().Replace(text, "");
+        text = HorizontalWhitespaceRegex().Replace(text, " ");
+        text = ExcessiveNewlinesRegex().Replace(text, "\n\n");
         text = text.Trim();
 
         if (text.Length > MaxFieldLength)
@@ -73,4 +73,19 @@ public static class AdoWorkItemMapper
 
         return text.Length > 0 ? text : null;
     }
+
+    [GeneratedRegex(@"<br\s*/?>|</p>|</li>|</div>|</h\d>", RegexOptions.IgnoreCase)]
+    private static partial Regex BlockBreakRegex();
+
+    [GeneratedRegex(@"<li[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex ListItemRegex();
+
+    [GeneratedRegex(@"</?[A-Za-z][^>]*>")]
+    private static partial Regex AnyTagRegex();
+
+    [GeneratedRegex(@"[^\S\n]+")]
+    private static partial Regex HorizontalWhitespaceRegex();
+
+    [GeneratedRegex(@"\n{3,}")]
+    private static partial Regex ExcessiveNewlinesRegex();
 }
