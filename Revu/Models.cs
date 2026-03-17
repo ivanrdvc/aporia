@@ -1,4 +1,6 @@
 using System.Runtime.Serialization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Serialization;
 
 using Revu.Git;
@@ -51,11 +53,40 @@ public record Finding(
     Severity Severity,
     string Message,
     string? CodeFix = null
-);
+)
+{
+    public static string Fingerprint(Finding finding)
+    {
+        var input = $"{finding.FilePath.TrimStart('/').ToLowerInvariant()}|{finding.Message.Trim().ToLowerInvariant()}";
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexStringLower(hash)[..16];
+    }
+}
 
 public record ReviewResult(
     List<Finding> Findings,
     string Summary
+);
+
+public record ChatRequest(
+    ReviewRequest Review,
+    int ThreadId,
+    int CommentId,
+    string UserMessage
+)
+{
+    public const string MarkerPrefix = "<!-- revu:";
+    public const string ChatMarker = "<!-- revu:chat -->";
+    public const string ReviewMarker = "<!-- revu:review -->";
+}
+
+
+public record ChatThreadContext(
+    int ThreadId,
+    string? Fingerprint,
+    string? FilePath,
+    int? StartLine,
+    IReadOnlyList<string> ThreadMessages
 );
 
 public record ExplorationResult(

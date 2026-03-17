@@ -1,4 +1,5 @@
 using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -93,7 +94,9 @@ public class AppFixture : IAsyncLifetime
             sp.GetRequiredKeyedService<IReviewStrategy>,
             sp.GetRequiredService<ICodeGraphStore>(),
             sp.GetRequiredService<IOptions<RevuOptions>>(),
-            sp.GetRequiredService<ILogger<Reviewer>>()));
+            sp.GetRequiredService<ILogger<Reviewer>>(),
+            sp.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
+            sp.GetRequiredService<ChatHistoryProvider>()));
 
         // Override Cosmos session provider — fresh session every run, captures to local JSON files.
         SessionDirectory = Path.Combine(AppContext.BaseDirectory, "sessions", $"run-{DateTime.UtcNow:yyyyMMdd-HHmmss}");

@@ -113,3 +113,13 @@ Thumbs.db
 infra/*.json
 
 ui/.tanstack
+
+# =========================
+# Azurite
+# =========================
+.azurite/
+__azurite_db_*
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+AzuriteConfig

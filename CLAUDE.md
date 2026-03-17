@@ -73,4 +73,4 @@ config.
   conclusions. Multi-agent is a context escape hatch, not the default path.
 - One file per domain concern, not one file per type — small related types are grouped (e.g.
   `Models.cs`, `ProjectConfig.cs`).
-- Never run integration tests automatically.
+- Never run integration tests without explicit confirmation — always ask first.

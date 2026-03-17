@@ -55,6 +55,36 @@ internal class AdoTestHelper(TestRepoOptions options, GitHttpClient gitClient) :
         }
     }
 
+    public async Task<(int ThreadId, int CommentId)> PostCommentOnRevuThread(ReviewRequest req, string message)
+    {
+        var threads = await GetRevuThreads(req);
+        var target = threads.FirstOrDefault(t => t.ThreadContext?.FilePath is not null)
+                     ?? throw new InvalidOperationException("No Revu thread found to post on");
+
+        var comment = new Comment { Content = message, CommentType = CommentType.Text };
+        var posted = await gitClient.CreateCommentAsync(
+            comment, req.Project, req.RepositoryId, req.PullRequestId, target.Id);
+        return (target.Id, posted.Id);
+    }
+
+    public async Task<(int ThreadId, int CommentId, string Message)> FindLatestHumanComment(ReviewRequest req)
+    {
+        var threads = await GetRevuThreads(req);
+        foreach (var thread in threads.OrderByDescending(t => t.Id))
+        {
+            var human = thread.Comments
+                .Where(c => c.Content is not null && !c.IsDeleted)
+                .Where(c => !c.Content!.StartsWith("<!-- revu"))
+                .OrderByDescending(c => c.Id)
+                .FirstOrDefault();
+
+            if (human is not null)
+                return (thread.Id, human.Id, human.Content!);
+        }
+
+        throw new InvalidOperationException("No human comment found on any Revu thread");
+    }
+
     private async Task<List<GitPullRequestCommentThread>> GetRevuThreads(ReviewRequest req)
     {
         var threads = await gitClient.GetThreadsAsync(

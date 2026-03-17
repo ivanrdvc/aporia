@@ -5,6 +5,7 @@ public class RevuOptions
     public const string SectionName = "Revu";
     public bool EnableIncrementalReviews { get; init; }
     public bool EnableCodeGraph { get; init; } = true;
+    public bool EnableChat { get; init; }
 }
 
 public static class SessionKeys

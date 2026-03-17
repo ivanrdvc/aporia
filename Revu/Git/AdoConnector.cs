@@ -23,10 +23,11 @@ public class AdoConnector(
 {
     private const string RevuVersion = "revu:version";
     private const string RevuFingerprint = "revu:fingerprint";
+    private static string RevuReviewMarker => ChatRequest.ReviewMarker;
     private const int MaxChangeEntries = 5000;
 
-    internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = new();
-    internal readonly ConcurrentDictionary<string, HttpClient> _searchClients = new();
+    internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = [];
+    internal readonly ConcurrentDictionary<string, HttpClient> _searchClients = [];
 
     private GitHttpClient GetGitClient(string org) =>
         _gitClients.GetOrAdd(org, key =>
@@ -210,14 +211,14 @@ public class AdoConnector(
         // Post new findings, skipping those already posted (fingerprint match)
         foreach (var finding in result.Findings)
         {
-            var fingerprint = Fingerprint(finding);
+            var fingerprint = Finding.Fingerprint(finding);
 
             if (revuThreads.ContainsKey(fingerprint))
                 continue; // already posted in a prior review
 
             var thread = new GitPullRequestCommentThread
             {
-                Comments = [new Comment { Content = FormatComment(finding), CommentType = CommentType.Text }],
+                Comments = [new Comment { Content = $"{RevuReviewMarker}\n{FormatComment(finding)}", CommentType = CommentType.Text }],
                 Status = CommentThreadStatus.Active,
                 Properties = new PropertiesCollection
                 {
@@ -243,7 +244,7 @@ public class AdoConnector(
         {
             var summaryThread = new GitPullRequestCommentThread
             {
-                Comments = [new Comment { Content = result.Summary, CommentType = CommentType.Text }],
+                Comments = [new Comment { Content = $"{RevuReviewMarker}\n{result.Summary}", CommentType = CommentType.Text }],
                 Properties = new PropertiesCollection { { RevuVersion, "1" } },
                 Status = CommentThreadStatus.Closed
             };
@@ -356,6 +357,59 @@ public class AdoConnector(
         }
     }
 
+    public async Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
+    {
+        var git = GetGitClient(req.Organization);
+        var threads = await git.GetThreadsAsync(
+            project: req.Project,
+            repositoryId: req.RepositoryId,
+            pullRequestId: req.PullRequestId);
+
+        var thread = threads.FirstOrDefault(t => t.Id == threadId);
+        if (thread is null || thread.IsDeleted || thread.Comments is null)
+            return null;
+
+        var comment = thread.Comments.FirstOrDefault(c => c.Id == commentId);
+        if (comment?.Content is null)
+            return null;
+
+        // Ignore Revu's own comments (review findings, summary, chat replies)
+        if (comment.Content.StartsWith(ChatRequest.MarkerPrefix))
+            return null;
+
+        var isRevuThread = thread.Properties?.GetValue<string>(RevuVersion, null!) is not null;
+
+        // On non-Revu threads, only respond if explicitly mentioned
+        if (!isRevuThread && !comment.Content.Contains("@revu", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var fingerprint = thread.Properties?.GetValue<string>(RevuFingerprint, null!);
+        var filePath = thread.ThreadContext?.FilePath;
+        var startLine = thread.ThreadContext?.RightFileStart?.Line;
+
+        var messages = thread.Comments
+            .Where(c => !c.IsDeleted && c.CommentType != CommentType.System)
+            .OrderBy(c => c.PublishedDate)
+            .Select(c => c.Content ?? "")
+            .Where(c => c.Length > 0)
+            .ToList();
+
+        return new ChatThreadContext(thread.Id, fingerprint, filePath, startLine, messages);
+    }
+
+    public async Task PostChatReply(ReviewRequest req, int threadId, string body)
+    {
+        var git = GetGitClient(req.Organization);
+
+        var comment = new Comment
+        {
+            Content = $"{ChatRequest.ChatMarker}\n{body}",
+            CommentType = CommentType.Text
+        };
+
+        await git.CreateCommentAsync(comment, req.Project, req.RepositoryId, req.PullRequestId, threadId);
+    }
+
     private async Task<string?> ReadFile(
         ReviewRequest req,
         string path,
@@ -394,10 +448,4 @@ public class AdoConnector(
         return $"{finding.Message}\n\n```suggestion\n{finding.CodeFix}\n```";
     }
 
-    internal static string Fingerprint(Finding finding)
-    {
-        var input = $"{finding.FilePath.TrimStart('/').ToLowerInvariant()}|{finding.Message.Trim().ToLowerInvariant()}";
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexStringLower(hash)[..16];
-    }
 }

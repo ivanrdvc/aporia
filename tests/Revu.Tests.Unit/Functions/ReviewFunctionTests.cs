@@ -1,3 +1,5 @@
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -31,7 +33,7 @@ public class ReviewFunctionTests
 
         return new(
             sp,
-            new Reviewer(_ => _strategy, _codeGraphStore, Options.Create(new RevuOptions { EnableCodeGraph = true }), NullLogger<Reviewer>.Instance),
+            new Reviewer(_ => _strategy, _codeGraphStore, Options.Create(new RevuOptions { EnableCodeGraph = true }), NullLogger<Reviewer>.Instance, Substitute.For<IChatClient>(), new InMemoryChatHistoryProvider()),
             _reviewStore,
             NullLogger<ReviewFunction>.Instance);
     }
@@ -44,7 +46,8 @@ public class ReviewFunctionTests
 
         _git.GetConfig(_req).Returns(ProjectConfig.Default);
         _git.GetDiff(_req, ProjectConfig.Default).Returns(diff);
-        _strategy.Review(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>())
+        _git.GetPrContext(_req).Returns(new PrContext("Test PR", null, []));
+        _strategy.Review(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<PrContext>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>())
             .Returns(result);
 
         await CreateSut().Run(_req);
@@ -76,7 +79,7 @@ public class ReviewFunctionTests
         await CreateSut().Run(_req);
 
         await _strategy.DidNotReceive().Review(
-            Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>());
+            Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<PrContext>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>());
         await _git.DidNotReceive().PostReview(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ReviewResult>());
     }
 }

@@ -1,6 +1,6 @@
 ---
 date: 2026-03-14
-status: draft
+status: done
 tags: [github, git-connector, webhook, multi-provider]
 ---
 

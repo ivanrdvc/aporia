@@ -1,6 +1,8 @@
-
 namespace Revu.Git;
 
+/// <summary>
+/// ADO service hook payload for <c>git.pullrequest.created</c> / <c>git.pullrequest.updated</c>.
+/// </summary>
 public record AdoWebhook(string EventType, AdoPullRequest Resource)
 {
     public ReviewRequest? ToRequest() =>

@@ -76,6 +76,12 @@ internal class GitHubTestHelper : ITestHelper, IDisposable
         }
     }
 
+    public Task<(int ThreadId, int CommentId)> PostCommentOnRevuThread(ReviewRequest req, string message) =>
+        throw new NotSupportedException("GitHub chat testing is not yet implemented.");
+
+    public Task<(int ThreadId, int CommentId, string Message)> FindLatestHumanComment(ReviewRequest req) =>
+        throw new NotSupportedException("GitHub chat testing is not yet implemented.");
+
     private static (string Owner, string Repo) ParseRepoId(string repositoryId)
     {
         var parts = repositoryId.Split('/');

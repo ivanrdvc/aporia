@@ -28,7 +28,8 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var result = await Reviewer.Review(TestEvent, diff, config);
+        var prContext = await Git.GetPrContext(TestEvent);
+        var result = await Reviewer.Review(TestEvent, diff, config, prContext);
 
         await Git.PostReview(TestEvent, diff, result);
 
@@ -45,7 +46,8 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var result = await Reviewer.Review(TestEvent, diff, config);
+        var prContext = await Git.GetPrContext(TestEvent);
+        var result = await Reviewer.Review(TestEvent, diff, config, prContext);
         await Git.PostReview(TestEvent, diff, result);
 
         Output.WriteLine($"Findings: {result.Findings.Count}  (maxComments: {config.Review.MaxComments})\n");
@@ -67,7 +69,8 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(target);
         var diff = await Git.GetDiff(target, config);
-        var result = await Reviewer.Review(target, diff, config);
+        var prContext = await Git.GetPrContext(target);
+        var result = await Reviewer.Review(target, diff, config, prContext);
 
         await Git.PostReview(target, diff, result);
 

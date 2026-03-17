@@ -29,7 +29,7 @@ public class CoreStrategy(
     private const int ExplorerMaxRoundtrips = 10;
     private const int ReviewerMaxRoundtrips = 6;
 
-    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
+    public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, PrContext prContext, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
     {
         var git = sp.GetRequiredKeyedService<IGitConnector>(req.Provider);
         var prompt = BuildReviewPrompt(diff);
@@ -70,8 +70,6 @@ public class CoreStrategy(
             .Use(runFunc: (msgs, s, o, agent, token) => AgentErrorMiddleware.Handle(msgs, s, o, agent, token, logger),
                 runStreamingFunc: null)
             .Build();
-
-        var prContext = await git.GetPrContext(req);
 
         var session = await reviewer.CreateSessionAsync(cancellationToken: ct);
         session.StateBag.SetValue(SessionKeys.ConversationId, req.ConversationId);

@@ -16,6 +16,7 @@
     "OTEL_SERVICE_NAME": "Revu-local",
     "Revu__EnableIncrementalReviews": "true",
     "Revu__EnableCodeGraph": "true",
+    "Revu__EnableChat": "true",
     "Cosmos__ConnectionString": "<your-cosmos-connection-string>"
   }
 }

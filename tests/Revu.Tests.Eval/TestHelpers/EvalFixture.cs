@@ -99,7 +99,9 @@ public class EvalFixture : IAsyncLifetime
                 NullLogger<CoreStrategy>.Instance),
             new NullCodeGraphStore(),
             Options.Create(new RevuOptions { EnableCodeGraph = true }),
-            NullLogger<Reviewer>.Instance);
+            NullLogger<Reviewer>.Instance,
+            _host.Services.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
+            new NullSessionProvider());
 
         return (reviewer, capture);
     }

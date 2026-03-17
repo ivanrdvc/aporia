@@ -36,7 +36,8 @@ public class ReviewFunction(
             return;
         }
 
-        var findings = await reviewer.Review(req, diff, config);
+        var prContext = await git.GetPrContext(req);
+        var findings = await reviewer.Review(req, diff, config, prContext);
         await git.PostReview(req, diff, findings);
 
         logger.LogInformation("Posted {Count} findings for PR #{PrId}", findings.Findings.Count, req.PullRequestId);

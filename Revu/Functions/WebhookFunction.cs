@@ -12,11 +12,12 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 
 using Revu.Git;
+using Revu.Infra;
 using Revu.Infra.Cosmos;
 
 namespace Revu.Functions;
 
-public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHubOptions)
+public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHubOptions, IOptions<RevuOptions> revuOptions)
 {
     [Function("WebhookAdo")]
     [OpenApiOperation(operationId: "WebhookAdo", tags: ["Webhooks"],
@@ -92,6 +93,36 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
 
         return new WebhookResponse { QueueMessage = JsonSerializer.Serialize(request) };
     }
+
+    [Function("WebhookAdoComment")]
+    public async Task<ChatWebhookResponse> RunAdoComment([HttpTrigger(AuthorizationLevel.Function, "post", Route = "webhook/ado/comment")] HttpRequest req)
+    {
+        if (!revuOptions.Value.EnableChat)
+            return new ChatWebhookResponse();
+
+        var webhook = await req.ReadFromJsonAsync<AdoCommentWebhook>(JsonSerializerOptions.Web);
+
+        if (webhook?.ToChatRequest() is not { } chatRequest)
+            return new ChatWebhookResponse();
+
+        var repo = await repoStore.GetAsync(chatRequest.Review.RepositoryId);
+
+        if (repo is not { Enabled: true, Organization: not null })
+            return new ChatWebhookResponse();
+
+        chatRequest = chatRequest with { Review = chatRequest.Review with { Organization = repo.Organization } };
+
+        return new ChatWebhookResponse { QueueMessage = JsonSerializer.Serialize(chatRequest) };
+    }
+}
+
+public class ChatWebhookResponse
+{
+    [HttpResult]
+    public IActionResult Result { get; set; } = new OkResult();
+
+    [QueueOutput("chat-queue")]
+    public string? QueueMessage { get; set; }
 }
 
 public class WebhookResponse

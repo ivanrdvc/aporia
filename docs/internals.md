@@ -74,3 +74,31 @@ Single database (`revu`), one Cosmos account. All stores are singletons that tak
 **reviews** — one document per review event. Captures status, findings count by severity, token usage, duration, and `conversationId` link to the AI session. Foundation for history and metrics.
 
 **sessions** — AI conversation history. Managed by MAF's `CosmosChatHistoryProvider`. 180-day TTL. Linked from review documents for debugging.
+
+# Local testing
+
+Local development uses Azurite for queues. The VS Code task `start azurite` launches it
+automatically before the func host. Alternatively, point `AzureWebJobsStorage` in
+`local.settings.json` to a real Azure Storage account.
+
+To test with real ADO webhooks locally: create a persistent dev tunnel so the URL survives
+restarts (no need to update ADO each time):
+
+```bash
+devtunnel create revu --allow-anonymous
+devtunnel port create revu -p 7071
+devtunnel host revu          # prints the fixed URL
+```
+
+On subsequent sessions, just `devtunnel host revu` — same URL.
+
+ADO service hooks needed for local testing:
+
+| Event | Route | Triggers |
+|---|---|---|
+| `Pull request created` | `{tunnel-url}/api/webhook/ado` | Review pipeline |
+| `Pull request updated` | `{tunnel-url}/api/webhook/ado` | Incremental review |
+| `Pull request commented on` | `{tunnel-url}/api/webhook/ado/comment` | Chat pipeline |
+
+Then `func start` — PR events and `@revu` comments on any registered repo will flow through
+the local pipeline.

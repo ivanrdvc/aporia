@@ -12,6 +12,11 @@ updates:
         patterns:
           - "Azure.*"
           - "Microsoft.Azure.*"
+      ai:
+        patterns:
+          - "Microsoft.Extensions.AI*"
+          - "Microsoft.Agents.*"
+          - "Anthropic*"
       microsoft-extensions:
         patterns:
           - "Microsoft.Extensions.*"
