@@ -17,6 +17,12 @@ updates:
           - "Microsoft.Extensions.*"
         exclude-patterns:
           - "Microsoft.Extensions.AI*"
+      ai:
+        patterns:
+          - "Microsoft.Extensions.AI*"
+      agents:
+        patterns:
+          - "Microsoft.Agents.*"
       opentelemetry:
         patterns:
           - "OpenTelemetry*"
