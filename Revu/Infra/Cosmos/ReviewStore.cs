@@ -13,9 +13,7 @@ public interface IReviewStore
 {
     Task SaveAsync(string repositoryId, int pullRequestId, string? cursor,
                    ReviewStatus status, int findingsCount,
-                   string? conversationId, ReviewSnapshot? snapshot = null);
-
-    Task<ReviewSnapshot?> GetLatestSnapshotAsync(string repositoryId, int pullRequestId);
+                   string? conversationId);
 }
 
 public class ReviewStore(CosmosDb db) : IReviewStore
@@ -24,7 +22,7 @@ public class ReviewStore(CosmosDb db) : IReviewStore
 
     public async Task SaveAsync(string repositoryId, int pullRequestId, string? cursor,
                                 ReviewStatus status, int findingsCount,
-                                string? conversationId, ReviewSnapshot? snapshot = null)
+                                string? conversationId)
     {
         var review = new ReviewEvent
         {
@@ -35,33 +33,10 @@ public class ReviewStore(CosmosDb db) : IReviewStore
             Status = status,
             FindingsCount = findingsCount,
             ConversationId = conversationId,
-            SnapshotJson = snapshot is not null ? System.Text.Json.JsonSerializer.Serialize(snapshot) : null,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
         await _container.UpsertItemAsync(review, new PartitionKey(repositoryId));
-    }
-
-    public async Task<ReviewSnapshot?> GetLatestSnapshotAsync(string repositoryId, int pullRequestId)
-    {
-        var query = new QueryDefinition(
-            "SELECT TOP 1 c.snapshotJson FROM c WHERE c.pullRequestId = @prId AND c.status = 'Completed' AND c.snapshotJson != null ORDER BY c.createdAt DESC")
-            .WithParameter("@prId", pullRequestId);
-
-        using var iterator = _container.GetItemQueryIterator<ReviewEvent>(query, requestOptions: new QueryRequestOptions
-        {
-            PartitionKey = new PartitionKey(repositoryId)
-        });
-
-        if (iterator.HasMoreResults)
-        {
-            var response = await iterator.ReadNextAsync();
-            var evt = response.FirstOrDefault();
-            if (evt?.SnapshotJson is not null)
-                return System.Text.Json.JsonSerializer.Deserialize<ReviewSnapshot>(evt.SnapshotJson);
-        }
-
-        return null;
     }
 
     private static string ToId(string repositoryId, int pullRequestId, string? cursor)
@@ -91,9 +66,6 @@ public class ReviewEvent
 
     [JsonProperty("conversationId")]
     public string? ConversationId { get; init; }
-
-    [JsonProperty("snapshotJson")]
-    public string? SnapshotJson { get; init; }
 
     [JsonProperty("createdAt")]
     public DateTimeOffset CreatedAt { get; init; }

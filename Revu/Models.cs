@@ -73,16 +73,13 @@ public record ChatRequest(
     int ThreadId,
     int CommentId,
     string UserMessage
-);
+)
+{
+    public const string MarkerPrefix = "<!-- revu:";
+    public const string ChatMarker = "<!-- revu:chat -->";
+    public const string ReviewMarker = "<!-- revu:review -->";
+}
 
-public record ReviewSnapshot(
-    ReviewResult Result,
-    IReadOnlyList<ReviewedFile> Files,
-    string PrTitle,
-    string? PrDescription
-);
-
-public record ReviewedFile(string Path, ChangeKind Kind);
 
 public record ChatThreadContext(
     int ThreadId,

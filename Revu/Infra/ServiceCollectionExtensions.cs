@@ -20,16 +20,7 @@ public static class ServiceCollectionExtensions
 
         var cosmosClient = new CosmosClient(connectionString);
         services.AddSingleton(cosmosClient);
-
-        // TODO: move container init to IHostedService for proper async startup
-        var db = cosmosClient.CreateDatabaseIfNotExistsAsync(cosmos.Database).GetAwaiter().GetResult();
-        db.Database.CreateContainerIfNotExistsAsync(CosmosOptions.SessionsContainer, "/conversationId").GetAwaiter().GetResult();
-        db.Database.CreateContainerIfNotExistsAsync(new ContainerProperties(CosmosOptions.PrStateContainer, "/repositoryId")
-            { DefaultTimeToLive = (int)TimeSpan.FromDays(90).TotalSeconds }).GetAwaiter().GetResult();
-        db.Database.CreateContainerIfNotExistsAsync(CosmosOptions.RepositoriesContainer, "/id").GetAwaiter().GetResult();
-        db.Database.CreateContainerIfNotExistsAsync(CosmosOptions.ReviewsContainer, "/repositoryId").GetAwaiter().GetResult();
-
-        db.Database.CreateContainerIfNotExistsAsync(CosmosOptions.CodeGraphContainer, "/repoId").GetAwaiter().GetResult();
+        services.AddHostedService<CosmosInitializer>();
 
         services.AddSingleton<CosmosDb>();
         services.AddSingleton<IRepoStore, RepoStore>();

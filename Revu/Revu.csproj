@@ -21,6 +21,7 @@
     <InternalsVisibleTo Include="Revu.Tests.Eval" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.5" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Anthropic" Version="12.8.0" />
     <PackageReference Include="DiffPlex" Version="1.9.0" />

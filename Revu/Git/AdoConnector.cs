@@ -23,7 +23,7 @@ public class AdoConnector(
 {
     private const string RevuVersion = "revu:version";
     private const string RevuFingerprint = "revu:fingerprint";
-    private const string RevuReviewMarker = "<!-- revu:review -->";
+    private static string RevuReviewMarker => ChatRequest.ReviewMarker;
     private const int MaxChangeEntries = 5000;
 
     internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = [];
@@ -374,7 +374,7 @@ public class AdoConnector(
             return null;
 
         // Ignore Revu's own comments (review findings, summary, chat replies)
-        if (comment.Content.StartsWith("<!-- revu:"))
+        if (comment.Content.StartsWith(ChatRequest.MarkerPrefix))
             return null;
 
         var isRevuThread = thread.Properties?.GetValue<string>(RevuVersion, null!) is not null;
@@ -403,7 +403,7 @@ public class AdoConnector(
 
         var comment = new Comment
         {
-            Content = $"<!-- revu:chat -->\n{body}",
+            Content = $"{ChatRequest.ChatMarker}\n{body}",
             CommentType = CommentType.Text
         };
 

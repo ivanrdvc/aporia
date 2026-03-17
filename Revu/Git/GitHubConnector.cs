@@ -30,7 +30,7 @@ public partial class GitHubConnector(
     [GeneratedRegex(@"\n\n```suggestion\n.*?\n```", RegexOptions.Singleline)]
     private static partial Regex SuggestionBlockRegex();
     private const string RevuSummaryMarker = "<!-- revu:summary -->";
-    private const string RevuReviewMarker = "<!-- revu:review -->";
+    private static string RevuReviewMarker => ChatRequest.ReviewMarker;
     private const string FingerprintPrefix = "<!-- revu:fp:";
     private const int MaxFilesPerPage = 300;
     private const int MaxTotalFiles = 3000;
@@ -363,10 +363,10 @@ public partial class GitHubConnector(
     }
 
     public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
-        => throw new NotSupportedException("GitHub chat is not yet implemented.");
+        => Task.FromResult<ChatThreadContext?>(null);
 
     public Task PostChatReply(ReviewRequest req, int threadId, string body)
-        => throw new NotSupportedException("GitHub chat is not yet implemented.");
+        => Task.CompletedTask;
 
     private static (string Owner, string Repo) ParseRepoId(string repositoryId)
     {

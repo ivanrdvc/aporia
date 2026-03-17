@@ -121,7 +121,7 @@ public class ChatWebhookResponse
     [HttpResult]
     public IActionResult Result { get; set; } = new OkResult();
 
-    [QueueOutput("%ChatQueue%")]
+    [QueueOutput("chat-queue")]
     public string? QueueMessage { get; set; }
 }
 
@@ -130,6 +130,6 @@ public class WebhookResponse
     [HttpResult]
     public IActionResult Result { get; set; } = new OkResult();
 
-    [QueueOutput("%ReviewQueue%")]
+    [QueueOutput("review-queue")]
     public string? QueueMessage { get; set; }
 }

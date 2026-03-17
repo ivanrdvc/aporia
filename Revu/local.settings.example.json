@@ -14,8 +14,6 @@
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
     "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Basic <your-openobserve-token>,organization=default,stream-name=default",
     "OTEL_SERVICE_NAME": "Revu-local",
-    "ReviewQueue": "review-queue",
-    "ChatQueue": "chat-queue",
     "Revu__EnableIncrementalReviews": "true",
     "Revu__EnableCodeGraph": "true",
     "Revu__EnableChat": "true",

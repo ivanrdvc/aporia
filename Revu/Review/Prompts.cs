@@ -170,9 +170,10 @@ public static class Prompts
         </role>
 
         <context>
-        You have access to your previous review findings and summary (in <review_snapshot>),
-        the specific thread context (in <thread_anchor> if replying to a specific finding),
-        and the conversation so far (in <thread_conversation>).
+        You are continuing the same conversation from the review — your earlier analysis,
+        diffs, findings, and tool calls are all in your session history. The thread context
+        (in <thread_anchor> if replying to a specific finding) and prior thread messages
+        (in <thread_conversation>) tell you which comment the developer is responding to.
 
         You have tools to read files, search code, and list directories in the repository
         if you need to investigate further or verify something.

@@ -29,7 +29,7 @@ public class Reviewer(
     private const int MaxInlineLineSpan = 20;
     private const int MaxCodeFixLineSpan = 15;
     private const int ChatMaxRoundtrips = 3;
-    private const string ChatMarker = "<!-- revu:chat -->";
+    private static string ChatMarker => ChatRequest.ChatMarker;
 
     public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config, PrContext prContext, CancellationToken ct = default)
     {
@@ -101,6 +101,8 @@ public class Reviewer(
 
     public async Task<string> Chat(ReviewRequest req, IGitConnector git, ChatThreadContext threadContext, string userMessage, CancellationToken ct = default)
     {
+        // Empty diff — chat tools don't need cached file content or diff-scoped search results.
+        // FetchFile always hits the API; SearchCode returns repo-wide results only.
         var tools = new ReviewerTools(git, req, new Diff([]));
         var systemPrompt = BuildChatPrompt(threadContext);
 
@@ -156,6 +158,8 @@ public class Reviewer(
             sb.AppendLine($"File: {threadContext.FilePath}");
             if (threadContext.StartLine is not null)
                 sb.AppendLine($"Line: {threadContext.StartLine}");
+            if (threadContext.Fingerprint is not null)
+                sb.AppendLine($"Fingerprint: {threadContext.Fingerprint}");
             sb.AppendLine("</thread_anchor>");
         }
 

@@ -129,11 +129,43 @@ public class AdoCommentWebhookTests
     }
 
     [Fact]
-    public void ToChatRequest_SelfReply_ReturnsNull()
+    public void ToChatRequest_ChatMarker_ReturnsNull()
     {
         var webhook = CreateCommentWebhook("<!-- revu:chat -->\nSome AI reply");
 
         Assert.Null(webhook.ToChatRequest());
+    }
+
+    [Fact]
+    public void ToChatRequest_ReviewMarker_ReturnsNull()
+    {
+        var webhook = CreateCommentWebhook("<!-- revu:review -->\nSome finding text");
+
+        Assert.Null(webhook.ToChatRequest());
+    }
+
+    [Fact]
+    public void ToChatRequest_TopLevelWithoutMention_ReturnsNull()
+    {
+        var webhook = CreateCommentWebhook("Just a regular comment", parentCommentId: 0);
+
+        Assert.Null(webhook.ToChatRequest());
+    }
+
+    [Fact]
+    public void ToChatRequest_TopLevelWithMention_ReturnsChatRequest()
+    {
+        var webhook = CreateCommentWebhook("@revu what do you think?", parentCommentId: 0);
+
+        Assert.NotNull(webhook.ToChatRequest());
+    }
+
+    [Fact]
+    public void ToChatRequest_ReplyWithoutMention_ReturnsChatRequest()
+    {
+        var webhook = CreateCommentWebhook("I disagree with this finding", parentCommentId: 1);
+
+        Assert.NotNull(webhook.ToChatRequest());
     }
 
     [Fact]
@@ -328,7 +360,8 @@ public class AdoCommentWebhookTests
         string eventType = "ms.vss-code.git-pullrequest-comment-event",
         bool isDeleted = false,
         DateTimeOffset? publishedDate = null,
-        DateTimeOffset? lastContentUpdatedDate = null)
+        DateTimeOffset? lastContentUpdatedDate = null,
+        int parentCommentId = 0)
     {
         var now = publishedDate ?? DateTimeOffset.UtcNow;
         return new AdoCommentWebhook(
@@ -338,6 +371,7 @@ public class AdoCommentWebhookTests
                 Comment = new AdoComment
                 {
                     Id = 3,
+                    ParentCommentId = parentCommentId,
                     Content = content,
                     PublishedDate = now,
                     LastContentUpdatedDate = lastContentUpdatedDate ?? now,

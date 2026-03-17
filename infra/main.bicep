@@ -140,9 +140,6 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'Revu__EnableIncrementalReviews', value: 'true' }
         { name: 'Revu__EnableCodeGraph', value: 'true' }
         { name: 'Revu__EnableChat', value: 'false' }
-        { name: 'ReviewQueue', value: 'review-queue' }
-        { name: 'ChatQueue', value: 'chat-queue' }
-        { name: 'IndexQueue', value: 'index-queue' }
       ]
     }
   }

@@ -80,6 +80,6 @@ public class RegisterRepoResponse
     [HttpResult]
     public IActionResult Result { get; set; } = new OkResult();
 
-    [QueueOutput("%IndexQueue%")]
+    [QueueOutput("index-queue")]
     public string? IndexMessage { get; set; }
 }

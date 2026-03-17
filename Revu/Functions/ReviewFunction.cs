@@ -18,7 +18,7 @@ public class ReviewFunction(
     public const string FunctionName = "ReviewProcessor";
 
     [Function(FunctionName)]
-    public async Task Run([QueueTrigger("%ReviewQueue%")] ReviewRequest req)
+    public async Task Run([QueueTrigger("review-queue")] ReviewRequest req)
     {
         logger.LogInformation("Processing review for PR #{PrId} in {Project}", req.PullRequestId, req.Project);
 
@@ -40,13 +40,7 @@ public class ReviewFunction(
         var findings = await reviewer.Review(req, diff, config, prContext);
         await git.PostReview(req, diff, findings);
 
-        var snapshot = new ReviewSnapshot(
-            findings,
-            diff.Files.Select(f => new ReviewedFile(f.Path, f.Kind)).ToList(),
-            prContext.Title,
-            prContext.Description);
-
         logger.LogInformation("Posted {Count} findings for PR #{PrId}", findings.Findings.Count, req.PullRequestId);
-        await reviewStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor, ReviewStatus.Completed, findings.Findings.Count, req.ConversationId, snapshot);
+        await reviewStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor, ReviewStatus.Completed, findings.Findings.Count, req.ConversationId);
     }
 }

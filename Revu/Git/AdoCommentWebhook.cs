@@ -8,8 +8,8 @@ namespace Revu.Git;
 /// </summary>
 public record AdoCommentWebhook(string EventType, AdoCommentResource Resource, AdoResourceContainers? ResourceContainers)
 {
-    private const string ChatMarker = "<!-- revu:chat -->";
-    private const string ReviewMarker = "<!-- revu:review -->";
+    private static string ChatMarker => ChatRequest.ChatMarker;
+    private static string ReviewMarker => ChatRequest.ReviewMarker;
 
     public ChatRequest? ToChatRequest()
     {
@@ -26,6 +26,13 @@ public record AdoCommentWebhook(string EventType, AdoCommentResource Resource, A
 
         // Ignore Revu's own comments (review findings, summary, and chat replies)
         if (comment.Content.StartsWith(ChatMarker) || comment.Content.StartsWith(ReviewMarker))
+            return null;
+
+        // Top-level comments (new threads) need an explicit @revu mention.
+        // Replies (ParentCommentId > 0) are let through — they might be on a Revu thread,
+        // which we can only verify downstream via the ADO API.
+        if (comment.ParentCommentId == 0
+            && !comment.Content.Contains("@revu", StringComparison.OrdinalIgnoreCase))
             return null;
 
         var pr = Resource.PullRequest;

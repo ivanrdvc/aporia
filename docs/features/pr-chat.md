@@ -32,17 +32,21 @@ Chat continues the same Cosmos session as the review. Both use `conversationId` 
 full context: the review's system prompt, diffs, findings, and tool call history. When no prior
 review exists, the agent starts fresh with its own tools.
 
-## Self-reply prevention
+## Filtering
 
-Revu's own comments are filtered at two layers to prevent feedback loops:
+Comments are filtered at three layers to minimize waste and prevent loops:
 
-1. **Webhook gate** (`AdoCommentWebhook.ToChatRequest`): review comments start with
-   `<!-- revu:review -->`, chat replies start with `<!-- revu:chat -->`. Any comment starting
-   with either marker is dropped before enqueue.
-2. **Connector gate** (`AdoConnector.GetChatThreadContext`): any comment starting with
-   `<!-- revu:` is rejected as a safety net, even if the webhook filter is bypassed.
+1. **Webhook gate** (`AdoCommentWebhook.ToChatRequest`):
+   - Revu's own comments (`<!-- revu:review -->`, `<!-- revu:chat -->`) are dropped before enqueue.
+   - Top-level comments (`ParentCommentId == 0`) without `@revu` are dropped — new threads
+     need an explicit mention. Replies (`ParentCommentId > 0`) are let through because the
+     webhook payload doesn't include thread properties, so we can't tell if it's a Revu thread.
+2. **Webhook function** (`WebhookFunction.RunAdoComment`): unregistered or disabled repos
+   are dropped before enqueue.
+3. **Connector gate** (`AdoConnector.GetChatThreadContext`): any comment starting with
+   `<!-- revu:` is rejected. On non-Revu threads, `@revu` mention is required.
 
-Both markers are HTML comments — invisible in rendered PR views.
+The markers are HTML comments — invisible in rendered PR views.
 
 ## Thread context
 

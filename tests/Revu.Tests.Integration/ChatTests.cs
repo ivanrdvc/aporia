@@ -76,8 +76,9 @@ public class ChatTests(
         if (explicitCommentId is > 0)
         {
             commentId = explicitCommentId.Value;
-            threadId = 0; // explicit mode doesn't know the thread — will need TestTarget:ThreadId if used
-            Output.WriteLine($"Using explicit comment ID: {commentId}");
+            threadId = configSvc.GetValue<int?>("TestTarget:ThreadId")
+                       ?? throw new InvalidOperationException("TestTarget:ThreadId is required when TestTarget:CommentId is set");
+            Output.WriteLine($"Using explicit comment ID: {commentId}, thread: {threadId}");
             userMessage = ""; // will be filled from thread context
         }
         else
@@ -93,7 +94,7 @@ public class ChatTests(
 
         // Use the actual message from the thread if we didn't get it from auto-detect
         if (string.IsNullOrEmpty(userMessage))
-            userMessage = threadContext.ThreadMessages.LastOrDefault(m => !m.StartsWith("<!-- revu:chat -->")) ?? "";
+            userMessage = threadContext.ThreadMessages.LastOrDefault(m => !m.StartsWith(ChatRequest.ChatMarker)) ?? "";
 
         Output.WriteLine($"User message: {userMessage}");
 

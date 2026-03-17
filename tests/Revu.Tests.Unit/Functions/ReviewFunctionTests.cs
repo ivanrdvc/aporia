@@ -53,7 +53,7 @@ public class ReviewFunctionTests
         await CreateSut().Run(_req);
 
         await _reviewStore.Received(1).SaveAsync(
-            "repo-1", 42, "3", ReviewStatus.Completed, 1, Arg.Any<string?>(), Arg.Any<ReviewSnapshot>());
+            "repo-1", 42, "3", ReviewStatus.Completed, 1, Arg.Any<string?>());
     }
 
     [Fact]

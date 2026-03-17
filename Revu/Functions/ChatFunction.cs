@@ -13,7 +13,7 @@ public class ChatFunction(
     ILogger<ChatFunction> logger)
 {
     [Function("ChatProcessor")]
-    public async Task Run([QueueTrigger("%ChatQueue%")] ChatRequest req)
+    public async Task Run([QueueTrigger("chat-queue")] ChatRequest req, CancellationToken ct)
     {
         logger.LogInformation("Processing chat for PR #{PrId}, comment {CommentId}", req.Review.PullRequestId, req.CommentId);
 
@@ -23,11 +23,11 @@ public class ChatFunction(
 
         if (threadContext is null)
         {
-            logger.LogInformation("Comment {CommentId} is not on a Revu thread and has no @revu mention, skipping", req.CommentId);
+            logger.LogInformation("Thread {ThreadId} comment {CommentId} skipped — not a Revu thread and no @revu mention", req.ThreadId, req.CommentId);
             return;
         }
 
-        var reply = await reviewer.Chat(req.Review, git, threadContext, req.UserMessage);
+        var reply = await reviewer.Chat(req.Review, git, threadContext, req.UserMessage, ct);
         await git.PostChatReply(req.Review, threadContext.ThreadId, reply);
 
         logger.LogInformation("Posted chat reply to thread {ThreadId} for PR #{PrId}", threadContext.ThreadId, req.Review.PullRequestId);
