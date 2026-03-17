@@ -145,6 +145,22 @@ public class ProjectConfigTests
     }
 
     [Fact]
+    public void Parse_EnableWorkItems_True()
+    {
+        var settings = ProjectConfig.Parse("""{ "review": { "enableWorkItems": true } }""");
+
+        Assert.True(settings.Review.EnableWorkItems);
+    }
+
+    [Fact]
+    public void Parse_EnableWorkItems_DefaultsNull()
+    {
+        var settings = ProjectConfig.Parse("{}");
+
+        Assert.Null(settings.Review.EnableWorkItems);
+    }
+
+    [Fact]
     public void Default_HasExpectedValues()
     {
         var d = ProjectConfig.Default;

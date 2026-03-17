@@ -32,6 +32,27 @@ public sealed class PrContextProvider : AIContextProvider
             }
 
             sb.AppendLine("</pr_context>");
+
+            if (pr.WorkItems is { Count: > 0 })
+            {
+                sb.AppendLine("\n<work_items>");
+                foreach (var wi in pr.WorkItems)
+                {
+                    sb.AppendLine($"## {wi.Type}: {wi.Title}");
+                    if (wi.Description is not null)
+                        sb.AppendLine($"Description: {wi.Description}");
+                    if (wi.AcceptanceCriteria is not null)
+                        sb.AppendLine($"Acceptance Criteria: {wi.AcceptanceCriteria}");
+
+                    if (wi.Parent is not null)
+                    {
+                        sb.AppendLine($"\n### Parent {wi.Parent.Type}: {wi.Parent.Title}");
+                        if (wi.Parent.Description is not null)
+                            sb.AppendLine($"Description: {wi.Parent.Description}");
+                    }
+                }
+                sb.AppendLine("</work_items>");
+            }
         }
 
         // Project context and rules from .revu.json

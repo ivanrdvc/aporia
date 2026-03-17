@@ -159,6 +159,69 @@ public class AdoConnectorTests
         Assert.Equal("6", diff.Cursor);
     }
 
+    [Fact]
+    public void CleanHtml_Null_ReturnsNull()
+    {
+        Assert.Null(AdoWorkItemMapper.CleanHtml(null));
+    }
+
+    [Fact]
+    public void CleanHtml_Empty_ReturnsNull()
+    {
+        Assert.Null(AdoWorkItemMapper.CleanHtml(""));
+        Assert.Null(AdoWorkItemMapper.CleanHtml("   "));
+    }
+
+    [Fact]
+    public void CleanHtml_StripsTags()
+    {
+        var result = AdoWorkItemMapper.CleanHtml("<p>Hello <b>world</b></p>");
+
+        Assert.NotNull(result);
+        Assert.DoesNotContain("<", result);
+        Assert.Contains("Hello", result);
+        Assert.Contains("world", result);
+    }
+
+    [Fact]
+    public void CleanHtml_ListItems_ConvertedToBullets()
+    {
+        var result = AdoWorkItemMapper.CleanHtml("<ul><li>First</li><li>Second</li></ul>");
+
+        Assert.NotNull(result);
+        Assert.Contains("- First", result);
+        Assert.Contains("- Second", result);
+    }
+
+    [Fact]
+    public void CleanHtml_DecodesEntities()
+    {
+        var result = AdoWorkItemMapper.CleanHtml("<p>a &amp; b &lt; c</p>");
+
+        Assert.NotNull(result);
+        Assert.Contains("a & b < c", result);
+    }
+
+    [Fact]
+    public void CleanHtml_TruncatesLongContent()
+    {
+        var longHtml = $"<p>{new string('x', 2000)}</p>";
+        var result = AdoWorkItemMapper.CleanHtml(longHtml);
+
+        Assert.NotNull(result);
+        Assert.True(result.Length <= 1512); // 1500 + " [truncated]"
+        Assert.EndsWith("[truncated]", result);
+    }
+
+    [Fact]
+    public void CleanHtml_ShortContent_NotTruncated()
+    {
+        var result = AdoWorkItemMapper.CleanHtml("<p>Short content</p>");
+
+        Assert.NotNull(result);
+        Assert.DoesNotContain("[truncated]", result);
+    }
+
     private static readonly ReviewRequest Req = new(
         GitProvider.Ado, "proj", "repo-id", "repo", 42, "refs/heads/feature", "refs/heads/main", "testorg");
 

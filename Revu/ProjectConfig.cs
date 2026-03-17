@@ -40,7 +40,8 @@ public class ProjectConfig
             Review = new ReviewConfig
             {
                 Strategy = o.Review.Strategy ?? d.Review.Strategy,
-                MaxComments = o.Review.MaxComments ?? d.Review.MaxComments
+                MaxComments = o.Review.MaxComments ?? d.Review.MaxComments,
+                EnableWorkItems = o.Review.EnableWorkItems ?? d.Review.EnableWorkItems
             },
             Files = new FileConfig
             {
@@ -70,6 +71,7 @@ public class ReviewConfig
 {
     public string? Strategy { get; init; }
     public int? MaxComments { get; init; }
+    public bool? EnableWorkItems { get; init; }
 }
 
 public class FileConfig

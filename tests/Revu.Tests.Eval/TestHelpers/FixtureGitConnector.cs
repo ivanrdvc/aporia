@@ -41,7 +41,7 @@ public sealed class FixtureGitConnector(Dictionary<string, string> files) : IGit
         return Task.FromResult<IReadOnlyList<string>>(result);
     }
 
-    public Task<PrContext> GetPrContext(ReviewRequest req) =>
+    public Task<PrContext> GetPrContext(ReviewRequest req, ProjectConfig config) =>
         Task.FromResult(new PrContext("Test PR", null, []));
 
     public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId) =>

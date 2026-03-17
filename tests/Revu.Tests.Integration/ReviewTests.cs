@@ -28,7 +28,7 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var prContext = await Git.GetPrContext(TestEvent);
+        var prContext = await Git.GetPrContext(TestEvent, config);
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
 
         await Git.PostReview(TestEvent, diff, result);
@@ -46,7 +46,7 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var prContext = await Git.GetPrContext(TestEvent);
+        var prContext = await Git.GetPrContext(TestEvent, config);
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
         await Git.PostReview(TestEvent, diff, result);
 
@@ -62,6 +62,45 @@ public class ReviewTests(
     }
 
     [Fact]
+    public async Task Review_WithWorkItems_IncludesWorkItemContext()
+    {
+        await ResetReviewState(TestEvent);
+
+        var repoConfig = await Git.GetConfig(TestEvent);
+        var config = new ProjectConfig
+        {
+            Review = new ReviewConfig
+            {
+                Strategy = repoConfig.Review.Strategy,
+                MaxComments = repoConfig.Review.MaxComments,
+                EnableWorkItems = true
+            },
+            Files = repoConfig.Files,
+            Rules = repoConfig.Rules,
+            Context = repoConfig.Context
+        };
+
+        var diff = await Git.GetDiff(TestEvent, config);
+        var prContext = await Git.GetPrContext(TestEvent, config);
+
+        Output.WriteLine($"Work items: {prContext.WorkItems?.Count ?? 0}");
+        if (prContext.WorkItems is { Count: > 0 })
+        {
+            foreach (var wi in prContext.WorkItems)
+            {
+                Output.WriteLine($"  [{wi.Type}] {wi.Title}");
+                Output.WriteLine($"    Description: {wi.Description?[..Math.Min(100, wi.Description?.Length ?? 0)]}...");
+                Output.WriteLine($"    AcceptanceCriteria: {wi.AcceptanceCriteria?[..Math.Min(100, wi.AcceptanceCriteria?.Length ?? 0)]}...");
+                if (wi.Parent is not null)
+                    Output.WriteLine($"    Parent: [{wi.Parent.Type}] {wi.Parent.Title}");
+            }
+        }
+
+        Assert.NotNull(prContext.WorkItems);
+        Assert.NotEmpty(prContext.WorkItems);
+    }
+
+    [Fact]
     public async Task SelfReview_FullPipeline()
     {
         var target = Scenarios.SelfReview;
@@ -69,7 +108,7 @@ public class ReviewTests(
 
         var config = await Git.GetConfig(target);
         var diff = await Git.GetDiff(target, config);
-        var prContext = await Git.GetPrContext(target);
+        var prContext = await Git.GetPrContext(target, config);
         var result = await Reviewer.Review(target, diff, config, prContext);
 
         await Git.PostReview(target, diff, result);

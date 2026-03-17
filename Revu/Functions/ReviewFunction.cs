@@ -36,7 +36,7 @@ public class ReviewFunction(
             return;
         }
 
-        var prContext = await git.GetPrContext(req);
+        var prContext = await git.GetPrContext(req, config);
         var findings = await reviewer.Review(req, diff, config, prContext);
         await git.PostReview(req, diff, findings);
 

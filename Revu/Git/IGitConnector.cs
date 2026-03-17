@@ -12,7 +12,7 @@ public interface IGitConnector
     Task<string?> GetFile(ReviewRequest req, string path);
     Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path, bool recursive = false);
     Task<IReadOnlyList<SearchResult>> SearchCode(ReviewRequest req, string query);
-    Task<PrContext> GetPrContext(ReviewRequest req);
+    Task<PrContext> GetPrContext(ReviewRequest req, ProjectConfig config);
     Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId);
     Task PostChatReply(ReviewRequest req, int threadId, string body);
 }

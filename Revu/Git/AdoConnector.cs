@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 
@@ -27,16 +28,22 @@ public class AdoConnector(
 
     internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = [];
     internal readonly ConcurrentDictionary<string, HttpClient> _searchClients = [];
+    private readonly ConcurrentDictionary<string, VssConnection> _connections = [];
 
-    private GitHttpClient GetGitClient(string org) =>
-        _gitClients.GetOrAdd(org, key =>
+    private VssConnection GetConnection(string org) =>
+        _connections.GetOrAdd(org, key =>
         {
             var config = adoOptions.Value.Organizations[key];
-            var connection = new VssConnection(
+            return new VssConnection(
                 new Uri($"https://dev.azure.com/{config.Organization}"),
                 new VssBasicCredential(string.Empty, config.PersonalAccessToken));
-            return connection.GetClient<GitHttpClient>();
         });
+
+    private GitHttpClient GetGitClient(string org) =>
+        _gitClients.GetOrAdd(org, key => GetConnection(key).GetClient<GitHttpClient>());
+
+    private WorkItemTrackingHttpClient GetWitClient(string org) =>
+        GetConnection(org).GetClient<WorkItemTrackingHttpClient>();
 
     private HttpClient GetSearchClient(string org) =>
         _searchClients.GetOrAdd(org, key =>
@@ -332,14 +339,18 @@ public class AdoConnector(
             .ToList() ?? [];
     }
 
-    public async Task<PrContext> GetPrContext(ReviewRequest req)
+    public async Task<PrContext> GetPrContext(ReviewRequest req, ProjectConfig config)
     {
         var git = GetGitClient(req.Organization);
         try
         {
             var prTask = git.GetPullRequestByIdAsync(req.PullRequestId, req.Project);
             var commitsTask = git.GetPullRequestCommitsAsync(req.Project, req.RepositoryId, req.PullRequestId);
-            await Task.WhenAll(prTask, commitsTask);
+            var workItemsTask = config.Review.EnableWorkItems == true
+                ? FetchWorkItems(req)
+                : Task.FromResult<IReadOnlyList<WorkItemContext>?>(null);
+
+            await Task.WhenAll(prTask, commitsTask, workItemsTask);
 
             var pr = prTask.Result;
             var messages = commitsTask.Result
@@ -347,12 +358,64 @@ public class AdoConnector(
                 .Where(m => !string.IsNullOrWhiteSpace(m))
                 .ToList();
 
-            return new PrContext(pr.Title, pr.Description, messages);
+            return new PrContext(pr.Title, pr.Description, messages, workItemsTask.Result);
         }
         catch (VssServiceException ex)
         {
             logger.LogWarning(ex, "Failed to fetch PR context for PR #{PrId}", req.PullRequestId);
             return new PrContext("", null, []);
+        }
+    }
+
+    private async Task<IReadOnlyList<WorkItemContext>?> FetchWorkItems(ReviewRequest req)
+    {
+        try
+        {
+            var git = GetGitClient(req.Organization);
+            var wit = GetWitClient(req.Organization);
+
+            var refs = await git.GetPullRequestWorkItemRefsAsync(req.Project, req.RepositoryId, req.PullRequestId);
+            if (refs.Count == 0)
+                return null;
+
+            var ids = refs
+                .Select(r => int.TryParse(r.Url.Split('/').Last(), out var id) ? id : (int?)null)
+                .Where(id => id is not null)
+                .Select(id => id!.Value)
+                .ToList();
+
+            if (ids.Count == 0)
+                return null;
+
+            var workItems = await wit.GetWorkItemsAsync(ids, fields: AdoWorkItemMapper.Fields);
+
+            // Collect distinct parent IDs and batch-fetch them
+            var parentIds = workItems
+                .Where(wi => wi.Fields is not null)
+                .Select(AdoWorkItemMapper.GetParentId)
+                .Where(id => id is not null)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+
+            var parentMap = new Dictionary<int, WorkItemContext>();
+            if (parentIds.Count > 0)
+            {
+                var parentWorkItems = await wit.GetWorkItemsAsync(parentIds, fields: AdoWorkItemMapper.Fields);
+                foreach (var pwi in parentWorkItems)
+                {
+                    if (pwi.Id is not null && pwi.Fields is not null)
+                        parentMap[pwi.Id.Value] = AdoWorkItemMapper.ToContext(pwi);
+                }
+            }
+
+            var items = AdoWorkItemMapper.MapWithParents(workItems, parentMap);
+            return items.Count > 0 ? items : null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch work items for PR #{PrId}", req.PullRequestId);
+            return null;
         }
     }
 
@@ -446,5 +509,4 @@ public class AdoConnector(
 
         return $"{finding.Message}\n\n```suggestion\n{finding.CodeFix}\n```";
     }
-
 }

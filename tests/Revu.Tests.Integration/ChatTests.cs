@@ -32,7 +32,7 @@ public class ChatTests(
 
         var config = await Git.GetConfig(TestEvent);
         var diff = await Git.GetDiff(TestEvent, config);
-        var prContext = await Git.GetPrContext(TestEvent);
+        var prContext = await Git.GetPrContext(TestEvent, config);
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
         await Git.PostReview(TestEvent, diff, result);
 

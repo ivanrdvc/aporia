@@ -46,7 +46,7 @@ public class ReviewFunctionTests
 
         _git.GetConfig(_req).Returns(ProjectConfig.Default);
         _git.GetDiff(_req, ProjectConfig.Default).Returns(diff);
-        _git.GetPrContext(_req).Returns(new PrContext("Test PR", null, []));
+        _git.GetPrContext(_req, ProjectConfig.Default).Returns(new PrContext("Test PR", null, []));
         _strategy.Review(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<PrContext>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>())
             .Returns(result);
 

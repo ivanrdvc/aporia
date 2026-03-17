@@ -332,7 +332,7 @@ public partial class GitHubConnector(
             .ToList() ?? [];
     }
 
-    public async Task<PrContext> GetPrContext(ReviewRequest req)
+    public async Task<PrContext> GetPrContext(ReviewRequest req, ProjectConfig config)
     {
         var client = GetClient(req.Organization);
         var (owner, repo) = ParseRepoId(req.RepositoryId);
