@@ -50,7 +50,7 @@ no `ReviewerTools` needed. The same `RepoClone` infrastructure will be reused by
 public class CopilotStrategy(IOptions<GitHubOptions> ghOptions, ILogger<CopilotStrategy> logger) : IReviewStrategy
 {
     public async Task<ReviewResult> Review(ReviewRequest req, Diff diff, ProjectConfig config,
-        IGitConnector git, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
+        PrContext prContext, CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
     {
         var orgConfig = ghOptions.Value.Organizations[req.Organization];
         string? cloneDir = null;
@@ -124,7 +124,7 @@ with the `ReviewResult` schema inlined. Parse from the response text. Fragile bu
 
 ### Existing Strategy Pattern (`Revu/Review/`)
 
-- `IReviewStrategy.Review()` signature: `(ReviewRequest, Diff, ProjectConfig, IGitConnector,
+- `IReviewStrategy.Review()` signature: `(ReviewRequest, Diff, ProjectConfig, PrContext,
   CodeGraphQuery?, CancellationToken)` → `Task<ReviewResult>`
 - `CoreStrategy` uses `IChatClient.AsAIAgent()` with `ChatClientAgentOptions` including
   `ChatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema<ReviewResult>()`
@@ -142,20 +142,23 @@ exchange only.
 
 ## Implementation Steps
 
+### Phase 1 — Ready now (no blockers)
+
 1. **Add `RepoClone` shared infrastructure**
    - Files: `Revu/Git/RepoClone.cs` (new)
    - `IAsyncDisposable` class — shallow-clones a repo, exposes `Path`, deletes on dispose.
    - Caller-agnostic: takes `cloneUrl`, `branch`, `token`. No strategy-specific logic.
-   - Security: header-based auth, symlinks off, LFS off, filters off, no submodules.
+   - Security: `GIT_ASKPASS`-based auth, symlinks off, LFS off, filters off, no submodules.
    - Reused by `CopilotStrategy` now and `ClaudeCodeStrategy` later.
+   - Self-contained — no external NuGet dependencies beyond `git` CLI.
 
 2. **Add NuGet references**
    - Files: `Revu/Revu.csproj`
-   - Add `GitHub.Copilot.SDK` and `Microsoft.Agents.AI.GitHub.Copilot` package references.
+   - Add `GitHub.Copilot.SDK` (pin v0.1.29) and `Microsoft.Agents.AI.GitHub.Copilot`.
    - Verify version compatibility with .NET 10.
 
-3. **Create CopilotStrategy**
-   - Files: `Revu/Review/CopilotStrategy.cs` (new)
+3. **Create CopilotStrategy skeleton + DI registration**
+   - Files: `Revu/Review/CopilotStrategy.cs` (new), `Revu/Program.cs`
    - Implement `IReviewStrategy`. Constructor takes `IOptions<GitHubOptions>`,
      `ILogger<CopilotStrategy>`.
    - In `Review()`: clone via `RepoClone.CreateAsync()`, create `CopilotClient` with
@@ -163,26 +166,32 @@ exchange only.
      `RunAsync()`, parse `ReviewResult` from response. `await using` handles cleanup.
    - Copilot uses its own native file/search tools on the local clone — no `ReviewerTools`.
    - Reuse `CoreStrategy.BuildReviewPrompt()` for the diff prompt.
-   - Lock down permissions: `OnPermissionRequest` denies all, `ExcludedTools` blocks
-     write/shell/network tools.
-   - Decide on parsing approach (Option A vs B from Solution section).
-
-4. **Register in DI**
-   - Files: `Revu/Program.cs`
-   - Add: `builder.Services.AddKeyedScoped<IReviewStrategy, CopilotStrategy>(ReviewStrategy.Copilot);`
+   - Lock down permissions: `OnPermissionRequest` denies all.
+   - DI: `builder.Services.AddKeyedScoped<IReviewStrategy, CopilotStrategy>(ReviewStrategy.Copilot);`
    - No other DI changes — `Reviewer` already resolves strategies by key.
+   - Leave TODO markers for: parsing approach, `ExcludedTools` lockdown.
 
-5. **Handle missing structured output**
-   - Files: `Revu/Review/CopilotStrategy.cs`
-   - If Option B: inject `[FromKeyedServices(ModelKey.Default)] IChatClient` for post-processing.
-   - If Option A: append JSON schema instructions to the review prompt.
+### Phase 2 — Blocked / needs spike
+
+4. **Handle missing structured output** _(blocked: needs spike on both options)_
+   - **Option A — Prompt-based JSON.** Append schema to prompt. Fragile but simple.
+   - **Option B — Post-processing extraction (recommended).** Run response through a second
+     `IChatClient` call (`ModelKey.Default`) with structured output to extract `ReviewResult`.
+     Reliable but adds latency and cost. Preferred because `IChatClient` with structured output
+     already works in `CoreStrategy` — the extraction call is cheap and predictable.
    - Either way, add robust fallback when parsing fails (return empty findings with error summary).
+   - If Option B: inject `[FromKeyedServices(ModelKey.Default)] IChatClient` for post-processing.
 
-6. **Custom Docker image**
+5. **Tool lockdown** _(blocked: need to enumerate Copilot built-in tool names)_
+   - `ExcludedTools` / `AvailableTools` requires knowing the exact tool names exposed by the
+     Copilot CLI. Need to create a session and inspect the tool list.
+
+6. **Custom Docker image** _(blocked: deployment feasibility unknown)_
    - Files: `Dockerfile` (new or updated)
    - `CopilotStrategy` requires `gh` CLI + `gh copilot` extension + `GH_TOKEN` env var.
    - `ClaudeCodeStrategy` (future) will require Claude Code CLI instead.
    - `git` CLI is already in the Azure Functions base images — no extra dependency for cloning.
+   - Key question: can the Copilot CLI (a local process) run in an Azure Functions container?
 
 ## Open Questions
 
@@ -429,3 +438,12 @@ clone infrastructure itself has no extra host dependencies.
   system prompt may interfere with review behavior. Watch for this.
 - Consider making this strategy opt-in and experimental. Gate behind a feature flag or config
   value so it doesn't affect production ADO reviews.
+- **Signature update (2026-03-17):** `IReviewStrategy.Review()` now takes `PrContext prContext`
+  instead of `IGitConnector git`. The plan's code snippets have been updated. `CopilotStrategy`
+  receives `PrContext` but doesn't need `IGitConnector` directly — it operates on a local clone
+  rather than REST APIs.
+- **Skills and context providers:** `CoreStrategy` uses `FileAgentSkillsProvider` and
+  `PrContextProvider` via MAF's `AIContextProviders`. The Copilot agent uses `SessionConfig`
+  (not `ChatClientAgentOptions`), so these providers can't be wired in directly. Skills would
+  need to be loaded manually and injected into the system message. This is a Phase 2 concern —
+  the skeleton can work without skills initially.
