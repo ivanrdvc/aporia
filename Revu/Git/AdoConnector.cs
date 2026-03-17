@@ -382,6 +382,7 @@ public class AdoConnector(
                 .Select(r => int.TryParse(r.Url.Split('/').Last(), out var id) ? id : (int?)null)
                 .Where(id => id is not null)
                 .Select(id => id!.Value)
+                .Distinct()
                 .ToList();
 
             if (ids.Count == 0)

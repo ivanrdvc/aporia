@@ -35,17 +35,17 @@ public sealed class PrContextProvider : AIContextProvider
         if (pr is not null)
         {
             sb.AppendLine("<pr_context>");
-            sb.AppendLine($"PR Title: {pr.Title}");
+            sb.AppendLine($"PR Title: {EscapePromptText(pr.Title)}");
 
             if (!string.IsNullOrWhiteSpace(pr.Description))
-                sb.AppendLine($"PR Description: {pr.Description}");
+                sb.AppendLine($"PR Description: {EscapePromptText(pr.Description)}");
 
             if (pr.CommitMessages.Count > 0)
             {
                 sb.AppendLine();
                 sb.AppendLine("Commit messages:");
                 foreach (var msg in pr.CommitMessages)
-                    sb.AppendLine($"- {msg}");
+                    sb.AppendLine($"- {EscapePromptText(msg)}");
             }
 
             sb.AppendLine("</pr_context>");
@@ -78,13 +78,13 @@ public sealed class PrContextProvider : AIContextProvider
         if (config is not null)
         {
             if (config.Context is not null)
-                sb.AppendLine($"\n<project_context>\n{config.Context}\n</project_context>");
+                sb.AppendLine($"\n<project_context>\n{EscapePromptText(config.Context)}\n</project_context>");
 
             if (config.Rules.Count > 0)
             {
                 sb.AppendLine("\n<additional_rules>");
                 foreach (var rule in config.Rules)
-                    sb.AppendLine($"- {rule}");
+                    sb.AppendLine($"- {EscapePromptText(rule)}");
                 sb.AppendLine("</additional_rules>");
             }
         }

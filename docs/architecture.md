@@ -151,7 +151,7 @@ The reviewer agent's input is composed from multiple independent sources via MAF
 | Layer                 | Source                                      | Content                                |
 |-----------------------|---------------------------------------------|----------------------------------------|
 | Instructions          | `Prompts.BuildReviewerInstructions()`       | How to review (rules, severity, format)|
-| Instructions (merged) | `PrContextProvider`                         | PR title/desc/commits + project context + rules from `.revu.json` |
+| Instructions (merged) | `PrContextProvider`                         | PR title/desc/commits, linked work items (ADO, `EnableWorkItems`), project context + rules from `.revu.json` |
 | Instructions (merged) | `LearningsProvider` (planned)               | Learnings from past review feedback    |
 | Tools (advertised)    | `FileAgentSkillsProvider`                   | Skill names + descriptions             |
 | User message          | `BuildReviewPrompt(diff)`                   | The diff                               |
