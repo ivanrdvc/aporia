@@ -142,6 +142,47 @@ Skills are reviewer capabilities, not project configuration. They represent what
 *knows*, not what the project requests. A project doesn't opt into security review. The reviewer
 loads the security skill when it sees security-relevant code.
 
+There are two kinds of skills:
+
+**Domain skills** (`maf`, `copilotkit`, `react`) teach the reviewer *how to review* a specific
+technology — what patterns matter, what to look for, what the framework expects. They add review
+capability the reviewer wouldn't otherwise have. The `SKILL.md` is self-contained instructions.
+
+**Reference skills** (`dotnet-architecture`) help the reviewer *verify its own assumptions* before
+reporting. The reviewer already pattern-matches against known anti-patterns — reference skills
+give it a way to check whether a match is actually a bug or a standard pattern. The `SKILL.md`
+is an index pointing to resource files the reviewer drills into on demand.
+
+#### Reference skills
+
+A reference skill describes how standard patterns work so the reviewer can tell whether code
+follows or deviates from them. The description signals that not checking leads to false positives,
+which creates urgency to load the skill rather than treating it as optional reference.
+
+Structure uses all three disclosure tiers:
+
+```
+Advertise:   "patterns frequently misidentified as bugs — check to avoid false positives"
+Load:        SKILL.md is an index — resource table, not instructions  (signals "there's more")
+Resource:    each resource file covers one concern area               (drill into specific pattern)
+```
+
+Each resource entry follows a compact format: **normal when** (how the pattern works),
+**bug when** (the actual failure mode), **→ Check** (the one thing to verify). This gives the
+reviewer a discriminator — one check that separates correct usage from a real bug — rather than
+a list of things to flag or suppress.
+
+The workflow requires skill loading before producing findings (step 4 in `Prompts.cs`). This is
+enforced via prompt instruction ("you MUST call load_skill"), not structurally — the model can
+still skip it. The MUST instruction moved skill loading from 0% to ~50% in testing with Haiku.
+Structural enforcement (e.g. two-pass review) would be more reliable but doubles cost.
+
+Why reference skills instead of prompt rules: prompt space is finite and cached. Skills use the
+messages layer (per-review, not cached) and only load when relevant. A reference skill for .NET
+patterns costs nothing on a React PR. The resource structure adds a second engagement point
+(`read_skill_resource` after `load_skill`), which matters because the core problem is getting the
+model to use tools at all — more tool-call opportunities mean more chances for engagement.
+
 ### Reviewer context layers
 
 The reviewer agent's input is composed from multiple independent sources via MAF's
