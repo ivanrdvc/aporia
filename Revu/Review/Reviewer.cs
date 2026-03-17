@@ -3,14 +3,12 @@ using System.Text;
 
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Revu.CodeGraph;
 using Revu.Git;
 using Revu.Infra;
-using Revu.Infra.AI;
 using Revu.Infra.Cosmos;
 using Revu.Infra.Middleware;
 using Revu.Infra.Telemetry;

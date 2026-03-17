@@ -1,5 +1,3 @@
-using Revu.Git;
-
 namespace Revu.Tests.Unit.Git;
 
 public class GitHubConnectorTests
