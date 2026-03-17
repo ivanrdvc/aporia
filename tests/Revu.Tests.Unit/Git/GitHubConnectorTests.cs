@@ -78,13 +78,4 @@ public class GitHubConnectorTests
         Assert.Equal(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
 
-    [Fact]
-    public void Fingerprint_MatchesAdoConnector()
-    {
-        var finding = new Finding("src/Foo.cs", 10, 15, Severity.Critical, "Null ref here");
-
-        Assert.Equal(
-            Finding.Fingerprint(finding),
-            Finding.Fingerprint(finding));
-    }
 }

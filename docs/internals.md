@@ -77,9 +77,9 @@ Single database (`revu`), one Cosmos account. All stores are singletons that tak
 
 # Local testing
 
-Local development uses real Azure Storage for queues (Azurite is incompatible with the current
-SDK). The connection string in `local.settings.json` points to the dev storage account. Isolation
-from prod relies on the deployed function app not running concurrently.
+Local development uses Azurite for queues. The VS Code task `start azurite` launches it
+automatically before the func host. Alternatively, point `AzureWebJobsStorage` in
+`local.settings.json` to a real Azure Storage account.
 
 To test with real ADO webhooks locally: create a persistent dev tunnel so the URL survives
 restarts (no need to update ADO each time):

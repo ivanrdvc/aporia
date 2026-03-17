@@ -360,13 +360,21 @@ public class AdoConnector(
     public async Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
     {
         var git = GetGitClient(req.Organization);
-        var threads = await git.GetThreadsAsync(
-            project: req.Project,
-            repositoryId: req.RepositoryId,
-            pullRequestId: req.PullRequestId);
+        GitPullRequestCommentThread thread;
+        try
+        {
+            thread = await git.GetThreadAsync(
+                project: req.Project,
+                repositoryId: req.RepositoryId,
+                pullRequestId: req.PullRequestId,
+                threadId: threadId);
+        }
+        catch (VssServiceException)
+        {
+            return null;
+        }
 
-        var thread = threads.FirstOrDefault(t => t.Id == threadId);
-        if (thread is null || thread.IsDeleted || thread.Comments is null)
+        if (thread.IsDeleted || thread.Comments is null)
             return null;
 
         var comment = thread.Comments.FirstOrDefault(c => c.Id == commentId);
