@@ -1,0 +1,147 @@
+{
+  "skill": "copilotkit-agui",
+  "version": "1.x",
+  "version_source": "https://www.npmjs.com/package/@copilotkit/react-core",
+  "agui_version": "0.x",
+  "agui_version_source": "https://www.npmjs.com/package/@ag-ui/client",
+  "rules": [
+    "This skill covers both CopilotKit AND the AG-UI protocol — never drop AG-UI coverage",
+    "LangGraph deep-dives belong elsewhere — only cover LangGraph as it relates to CopilotKit (useCoAgent, LangGraphAgent, LangGraphHttpAgent)",
+    "This skill is React/Next.js frontend focused. .NET backend coverage is in scope for AG-UI agent hosting that connects to CopilotKit. Do not add Python or other backend framework content.",
+    "Check todo.md before restructuring or splitting reference files",
+    "v2 props marked as 'inferred from Angular parity' are unverified — flag them, don't present as confirmed"
+  ],
+  "local_repos": {
+    "copilotkit": {
+      "remote": "https://github.com/CopilotKit/CopilotKit",
+      "local_hint": "C:/Repos/CopilotKit",
+      "note": "Ask user if repo is cloned locally before fetching from GitHub. v2 docs live at examples/v2/docs/reference/"
+    }
+  },
+  "sources": {
+    "references/provider-setup.md": {
+      "urls": [
+        "https://docs.copilotkit.ai/reference/components/CopilotKit",
+        "https://docs.copilotkit.ai/reference/hooks/useCopilotKit",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/copilotkit-provider.mdx"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "CopilotKit (v1) and CopilotKitProvider (v2) props, setup, migration table"
+    },
+    "references/chat-components.md": {
+      "urls": [
+        "https://docs.copilotkit.ai/reference/components/chat/CopilotChat",
+        "https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar",
+        "https://docs.copilotkit.ai/reference/components/chat/CopilotPopup",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/copilot-chat.mdx",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/copilot-sidebar.mdx",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/copilot-popup.mdx"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "CopilotChat/Sidebar/Popup variants, v1+v2 props, granular v2 component exports"
+    },
+    "references/customization.md": {
+      "urls": [
+        "https://docs.copilotkit.ai/custom-look-and-feel/customize-built-in-ui-components",
+        "https://docs.copilotkit.ai/custom-look-and-feel/bring-your-own-components",
+        "https://docs.copilotkit.ai/custom-look-and-feel/markdown-rendering",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/slot-system.mdx",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/copilot-chat-configuration-provider.mdx"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "v1 CSS variables/classes/labels/icons/sub-components. v2 slot system, labels via CopilotChatConfigurationProvider"
+    },
+    "references/hooks-tools.md": {
+      "urls": [
+        "https://docs.copilotkit.ai/reference/hooks/useFrontendTool",
+        "https://docs.copilotkit.ai/reference/hooks/useRenderToolCall",
+        "https://docs.copilotkit.ai/reference/hooks/useDefaultTool",
+        "https://docs.copilotkit.ai/reference/hooks/useHumanInTheLoop",
+        "https://docs.copilotkit.ai/reference/hooks/useCopilotAction",
+        "https://docs.copilotkit.ai/frontend-actions",
+        "https://docs.copilotkit.ai/human-in-the-loop",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/use-frontend-tool.mdx",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/use-render-tool-call.mdx",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/use-human-in-the-loop.mdx",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/frontend-tool.mdx"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "Frontend tools, render tools, default tool, HITL, legacy useCopilotAction, v2 Zod equivalents"
+    },
+    "references/hooks-state.md": {
+      "urls": [
+        "https://docs.copilotkit.ai/reference/hooks/useCopilotReadable",
+        "https://docs.copilotkit.ai/reference/hooks/useCopilotAdditionalInstructions",
+        "https://docs.copilotkit.ai/reference/classes/CopilotTask",
+        "https://docs.copilotkit.ai/integrations/langgraph/agent-app-context",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/use-agent-context.mdx"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "useCopilotReadable, useAgentContext (v2), useCopilotAdditionalInstructions, CopilotTask"
+    },
+    "references/hooks-chat.md": {
+      "urls": [
+        "https://docs.copilotkit.ai/reference/hooks/useCopilotChat",
+        "https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions",
+        "https://docs.copilotkit.ai/custom-look-and-feel/headless-ui",
+        "https://docs.copilotkit.ai/premium/headless-ui",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/use-copilotkit.mdx"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "useCopilotChat, useCopilotChatHeadless_c (premium), useCopilotChatSuggestions, v2 useCopilotKit() hook"
+    },
+    "references/hooks-agents.md": {
+      "urls": [
+        "https://docs.copilotkit.ai/reference/hooks/useAgent",
+        "https://docs.copilotkit.ai/reference/hooks/useCoAgent",
+        "https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender",
+        "https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt",
+        "https://docs.copilotkit.ai/coagents/quickstart/langgraph",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/use-agent.mdx"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "useAgent (v2), useCoAgent (v1), useCoAgentStateRender, useLangGraphInterrupt, shared state, agent lifecycle"
+    },
+    "references/core-api.md": {
+      "urls": [
+        "https://docs.copilotkit.ai/reference/hooks/useCopilotKit",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/copilotkit-core.mdx",
+        "https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/docs/reference/use-copilotkit.mdx"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "CopilotKitCore API: config, runtime connection, agent/tool/context management, event subscription, error codes"
+    },
+    "references/agui-protocol.md": {
+      "urls": [
+        "https://docs.ag-ui.com/concepts/events",
+        "https://docs.ag-ui.com/concepts/messages",
+        "https://docs.ag-ui.com/concepts/state",
+        "https://docs.ag-ui.com/concepts/tools",
+        "https://docs.ag-ui.com/concepts/architecture",
+        "https://docs.ag-ui.com/concepts/generative-ui-specs"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "AG-UI protocol spec: 16 event types, 6 message types, shared state, frontend tools, gen-UI specs"
+    },
+    "references/agui-client.md": {
+      "urls": [
+        "https://docs.ag-ui.com/sdk/js/client/abstract-agent",
+        "https://docs.ag-ui.com/sdk/js/client/http-agent",
+        "https://docs.ag-ui.com/sdk/js/client/middleware",
+        "https://docs.ag-ui.com/sdk/js/client/stream-compaction"
+      ],
+      "last_checked": "2026-02-14",
+      "last_updated": "2026-02-14",
+      "notes": "AG-UI client SDK: AbstractAgent, HttpAgent, middleware system, FilterToolCallsMiddleware, compactEvents"
+    }
+  }
+}
