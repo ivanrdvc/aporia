@@ -2,16 +2,26 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Revu.Git;
 
-public class GitHubOptions
+public class GitHubOptions : IValidatableObject
 {
     public const string SectionName = "GitHub";
 
-    public Dictionary<string, GitHubOrgConfig> Organizations { get; init; } = [];
-
     public string? WebhookSecret { get; init; }
-}
 
-public class GitHubOrgConfig
-{
-    [Required] public string Token { get; init; } = string.Empty;
+    /// PAT-based auth (fallback). Required if App fields are not set.
+    public string? Token { get; init; }
+
+    /// GitHub App auth. Both must be set to use App identity.
+    /// InstallationId comes from the webhook payload per-request, not config.
+    public long? AppId { get; init; }
+    public string? PrivateKey { get; init; }
+
+    public bool UseApp => AppId is not null && PrivateKey is not null;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!UseApp && string.IsNullOrWhiteSpace(Token))
+            yield return new ValidationResult(
+                "Either Token (PAT) or GitHub App fields (AppId, PrivateKey) must be configured.");
+    }
 }

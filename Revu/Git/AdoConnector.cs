@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -17,6 +18,7 @@ namespace Revu.Git;
 
 public class AdoConnector(
     IPrStateStore stateStore,
+    IHttpClientFactory httpClientFactory,
     IOptions<AdoOptions> adoOptions,
     IOptions<RevuOptions> revuOptions,
     ILogger<AdoConnector> logger) : IGitConnector
@@ -26,8 +28,9 @@ public class AdoConnector(
     private static string RevuReviewMarker => ChatRequest.ReviewMarker;
     private const int MaxChangeEntries = 5000;
 
+    internal const string SearchClientName = "ado-search";
+
     internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = [];
-    internal readonly ConcurrentDictionary<string, HttpClient> _searchClients = [];
     private readonly ConcurrentDictionary<string, VssConnection> _connections = [];
 
     private VssConnection GetConnection(string org) =>
@@ -45,19 +48,15 @@ public class AdoConnector(
     private WorkItemTrackingHttpClient GetWitClient(string org) =>
         GetConnection(org).GetClient<WorkItemTrackingHttpClient>();
 
-    private HttpClient GetSearchClient(string org) =>
-        _searchClients.GetOrAdd(org, key =>
-        {
-            var config = adoOptions.Value.Organizations[key];
-            var client = new HttpClient
-            {
-                BaseAddress = new Uri($"https://almsearch.dev.azure.com/{config.Organization}/")
-            };
-            var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{config.PersonalAccessToken}"));
-            client.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
-            return client;
-        });
+    private HttpClient GetSearchClient(string org)
+    {
+        var config = adoOptions.Value.Organizations[org];
+        var client = httpClientFactory.CreateClient(SearchClientName);
+        client.BaseAddress = new Uri($"https://almsearch.dev.azure.com/{config.Organization}/");
+        var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{config.PersonalAccessToken}"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", creds);
+        return client;
+    }
 
     public async Task<ProjectConfig> GetConfig(ReviewRequest req)
     {

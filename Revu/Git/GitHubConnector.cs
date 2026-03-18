@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -16,7 +15,7 @@ namespace Revu.Git;
 
 public partial class GitHubConnector(
     IPrStateStore stateStore,
-    IOptions<GitHubOptions> ghOptions,
+    HttpClient http,
     IOptions<RevuOptions> revuOptions,
     ILogger<GitHubConnector> logger) : IGitConnector
 {
@@ -36,17 +35,15 @@ public partial class GitHubConnector(
     private const int CompareFileCap = 250;
     private const int GitHubReviewBatchSize = 30;
 
-    private readonly ConcurrentDictionary<string, HttpClient> _clients = new();
-
     public async Task<ProjectConfig> GetConfig(ReviewRequest req)
     {
-        var client = GetClient(req.Organization);
         var (owner, repo) = ParseRepoId(req.RepositoryId);
         var branch = req.TargetBranch;
 
         try
         {
-            var response = await client.GetAsync($"repos/{owner}/{repo}/contents/.revu.json?ref={branch}");
+            var response = await SendAsync(req, HttpMethod.Get,
+                $"repos/{owner}/{repo}/contents/.revu.json?ref={branch}");
             if (!response.IsSuccessStatusCode)
                 return ProjectConfig.Default;
 
@@ -66,12 +63,11 @@ public partial class GitHubConnector(
 
     public async Task<Diff> GetDiff(ReviewRequest req, ProjectConfig config)
     {
-        var client = GetClient(req.Organization);
         var (owner, repo) = ParseRepoId(req.RepositoryId);
 
         // Get PR to find head SHA
-        var prResponse = await client.GetFromJsonAsync<GitHubPrResponse>(
-            $"repos/{owner}/{repo}/pulls/{req.PullRequestId}", JsonSerializerOptions.Web);
+        var prResponse = await GetFromJsonAsync<GitHubPrResponse>(req,
+            $"repos/{owner}/{repo}/pulls/{req.PullRequestId}");
 
         if (prResponse is null)
             return new Diff([]);
@@ -95,7 +91,7 @@ public partial class GitHubConnector(
         {
             try
             {
-                var compareResponse = await client.GetAsync(
+                var compareResponse = await SendAsync(req, HttpMethod.Get,
                     $"repos/{owner}/{repo}/compare/{lastCursor}...{headSha}");
 
                 if (compareResponse.IsSuccessStatusCode)
@@ -115,7 +111,7 @@ public partial class GitHubConnector(
             }
         }
 
-        var prFiles = incrementalFiles ?? await GetAllPrFiles(client, owner, repo, req.PullRequestId);
+        var prFiles = incrementalFiles ?? await GetAllPrFiles(req, owner, repo, req.PullRequestId);
 
         if (prFiles.Count > MaxTotalFiles)
         {
@@ -154,7 +150,7 @@ public partial class GitHubConnector(
                     return;
                 }
 
-                var content = await FetchFileContent(client, owner, repo, path, headSha);
+                var content = await FetchFileContent(req, owner, repo, path, headSha);
                 var oldPath = kind == ChangeKind.Rename ? file.PreviousFilename : null;
 
                 bag.Add(new FileChange(path, kind, patch, content, oldPath));
@@ -165,7 +161,6 @@ public partial class GitHubConnector(
 
     public async Task PostReview(ReviewRequest req, Diff diff, ReviewResult result)
     {
-        var client = GetClient(req.Organization);
         var (owner, repo) = ParseRepoId(req.RepositoryId);
         var prNumber = req.PullRequestId;
 
@@ -173,7 +168,7 @@ public partial class GitHubConnector(
         var headSha = diff.Cursor;
 
         // Dedup: collect existing revu fingerprints
-        var existingFingerprints = await GetExistingFingerprints(client, owner, repo, prNumber);
+        var existingFingerprints = await GetExistingFingerprints(req, owner, repo, prNumber);
 
         var diffHunks = ParseDiffHunks(diff);
         var reviewComments = new List<object>();
@@ -238,7 +233,7 @@ public partial class GitHubConnector(
 
         // Post or update summary first so it appears above inline comments on the PR timeline
         if (!string.IsNullOrWhiteSpace(result.Summary))
-            await UpsertSummaryComment(client, owner, repo, prNumber, result.Summary);
+            await UpsertSummaryComment(req, owner, repo, prNumber, result.Summary);
 
         // Post review with findings
         if (reviewComments.Count > 0 || outOfHunkFindings.Count > 0)
@@ -266,11 +261,11 @@ public partial class GitHubConnector(
                 if (headSha is not null)
                     payload["commit_id"] = headSha;
 
-                var response = await client.PostAsJsonAsync(
+                var response = await SendAsync(req, HttpMethod.Post,
                     $"repos/{owner}/{repo}/pulls/{prNumber}/reviews", payload);
 
                 if (response.StatusCode == HttpStatusCode.UnprocessableEntity && batch.Length > 0)
-                    await RetryCommentsIndividually(client, owner, repo, prNumber, headSha, batch);
+                    await RetryCommentsIndividually(req, owner, repo, prNumber, headSha, batch);
             }
         }
 
@@ -281,21 +276,19 @@ public partial class GitHubConnector(
 
     public async Task<string?> GetFile(ReviewRequest req, string path)
     {
-        var client = GetClient(req.Organization);
         var (owner, repo) = ParseRepoId(req.RepositoryId);
-        return await FetchFileContent(client, owner, repo, path, req.SourceBranch);
+        return await FetchFileContent(req, owner, repo, path, req.SourceBranch);
     }
 
     public async Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path, bool recursive = false)
     {
-        var client = GetClient(req.Organization);
         var (owner, repo) = ParseRepoId(req.RepositoryId);
         var branch = req.SourceBranch;
 
         if (recursive)
         {
-            var response = await client.GetFromJsonAsync<GitHubTreeResponse>(
-                $"repos/{owner}/{repo}/git/trees/{branch}?recursive=1", JsonSerializerOptions.Web);
+            var response = await GetFromJsonAsync<GitHubTreeResponse>(req,
+                $"repos/{owner}/{repo}/git/trees/{branch}?recursive=1");
 
             return response?.Tree
                 ?.Where(t => t.Type == "blob" && t.Path.StartsWith(path.TrimStart('/')))
@@ -303,18 +296,18 @@ public partial class GitHubConnector(
                 .ToList() ?? [];
         }
 
-        var contents = await client.GetFromJsonAsync<List<GitHubContent>>(
-            $"repos/{owner}/{repo}/contents/{path.TrimStart('/')}?ref={branch}", JsonSerializerOptions.Web);
+        var contents = await GetFromJsonAsync<List<GitHubContent>>(req,
+            $"repos/{owner}/{repo}/contents/{path.TrimStart('/')}?ref={branch}");
 
         return contents?.Select(c => c.Path).ToList() ?? [];
     }
 
     public async Task<IReadOnlyList<SearchResult>> SearchCode(ReviewRequest req, string query)
     {
-        var client = GetClient(req.Organization);
         var (owner, repo) = ParseRepoId(req.RepositoryId);
 
-        var response = await client.GetAsync($"search/code?q={Uri.EscapeDataString(query)}+repo:{owner}/{repo}");
+        var response = await SendAsync(req, HttpMethod.Get,
+            $"search/code?q={Uri.EscapeDataString(query)}+repo:{owner}/{repo}");
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
         {
@@ -334,15 +327,14 @@ public partial class GitHubConnector(
 
     public async Task<PrContext> GetPrContext(ReviewRequest req)
     {
-        var client = GetClient(req.Organization);
         var (owner, repo) = ParseRepoId(req.RepositoryId);
 
         try
         {
-            var prTask = client.GetFromJsonAsync<GitHubPrResponse>(
-                $"repos/{owner}/{repo}/pulls/{req.PullRequestId}", JsonSerializerOptions.Web);
-            var commitsTask = client.GetFromJsonAsync<List<GitHubCommit>>(
-                $"repos/{owner}/{repo}/pulls/{req.PullRequestId}/commits", JsonSerializerOptions.Web);
+            var prTask = GetFromJsonAsync<GitHubPrResponse>(req,
+                $"repos/{owner}/{repo}/pulls/{req.PullRequestId}");
+            var commitsTask = GetFromJsonAsync<List<GitHubCommit>>(req,
+                $"repos/{owner}/{repo}/pulls/{req.PullRequestId}/commits");
 
             await Task.WhenAll(prTask, commitsTask);
 
@@ -367,35 +359,35 @@ public partial class GitHubConnector(
     public Task PostChatReply(ReviewRequest req, int threadId, string body)
         => Task.CompletedTask;
 
+    private Task<HttpResponseMessage> SendAsync(ReviewRequest req, HttpMethod method, string url, object? body = null)
+    {
+        var request = new HttpRequestMessage(method, url);
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
+        if (req.InstallationId is { } id)
+            request.Options.Set(GitHubAuthHandler.InstallationIdKey, id);
+        return http.SendAsync(request);
+    }
+
+    private async Task<T?> GetFromJsonAsync<T>(ReviewRequest req, string url)
+    {
+        using var response = await SendAsync(req, HttpMethod.Get, url);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<T>(JsonSerializerOptions.Web);
+    }
+
     private static (string Owner, string Repo) ParseRepoId(string repositoryId)
     {
         var parts = repositoryId.Split('/');
         return (parts[0], parts[1]);
     }
 
-    private HttpClient GetClient(string org)
-    {
-        return _clients.GetOrAdd(org, key =>
-        {
-            var config = ghOptions.Value.Organizations[key];
-            var client = new HttpClient
-            {
-                BaseAddress = new Uri("https://api.github.com/")
-            };
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.Token);
-            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Revu", "1.0"));
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-            client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
-            return client;
-        });
-    }
-
-    private async Task<List<GitHubPrFile>> GetAllPrFiles(HttpClient client, string owner, string repo, int prNumber)
+    private async Task<List<GitHubPrFile>> GetAllPrFiles(ReviewRequest req, string owner, string repo, int prNumber)
     {
         var allFiles = new List<GitHubPrFile>();
 
-        await foreach (var file in Paginate<GitHubPrFile>(
-            client, $"repos/{owner}/{repo}/pulls/{prNumber}/files", MaxFilesPerPage))
+        await foreach (var file in Paginate<GitHubPrFile>(req,
+            $"repos/{owner}/{repo}/pulls/{prNumber}/files", MaxFilesPerPage))
         {
             allFiles.Add(file);
             if (allFiles.Count >= MaxTotalFiles)
@@ -405,11 +397,11 @@ public partial class GitHubConnector(
         return allFiles;
     }
 
-    private async Task<string?> FetchFileContent(HttpClient client, string owner, string repo, string path, string @ref)
+    private async Task<string?> FetchFileContent(ReviewRequest req, string owner, string repo, string path, string @ref)
     {
         try
         {
-            var response = await client.GetAsync(
+            var response = await SendAsync(req, HttpMethod.Get,
                 $"repos/{owner}/{repo}/contents/{path.TrimStart('/')}?ref={@ref}");
 
             if (!response.IsSuccessStatusCode)
@@ -422,7 +414,7 @@ public partial class GitHubConnector(
             // Files > 1MB need the blob API
             if (content.Content is null && content.GitUrl is not null)
             {
-                var blobResponse = await client.GetFromJsonAsync<GitHubBlob>(content.GitUrl, JsonSerializerOptions.Web);
+                var blobResponse = await GetFromJsonAsync<GitHubBlob>(req, content.GitUrl);
                 if (blobResponse?.Content is null) return null;
                 return Encoding.UTF8.GetString(Convert.FromBase64String(blobResponse.Content.Replace("\n", "")));
             }
@@ -441,14 +433,14 @@ public partial class GitHubConnector(
     /// Collect existing revu fingerprints from review comments for dedup.
     /// </summary>
     private async Task<HashSet<string>> GetExistingFingerprints(
-        HttpClient client, string owner, string repo, int prNumber)
+        ReviewRequest req, string owner, string repo, int prNumber)
     {
         var fingerprints = new HashSet<string>();
 
         try
         {
-            await foreach (var comment in Paginate<GitHubReviewComment>(
-                client, $"repos/{owner}/{repo}/pulls/{prNumber}/comments"))
+            await foreach (var comment in Paginate<GitHubReviewComment>(req,
+                $"repos/{owner}/{repo}/pulls/{prNumber}/comments"))
             {
                 var match = FingerprintRegex().Match(comment.Body ?? "");
                 if (match.Success)
@@ -463,35 +455,36 @@ public partial class GitHubConnector(
         return fingerprints;
     }
 
-    private async Task UpsertSummaryComment(HttpClient client, string owner, string repo, int prNumber, string summary)
+    private async Task UpsertSummaryComment(ReviewRequest req, string owner, string repo, int prNumber, string summary)
     {
         var body = $"{RevuSummaryMarker}\n{summary}";
 
-        await foreach (var comment in Paginate<GitHubIssueComment>(
-            client, $"repos/{owner}/{repo}/issues/{prNumber}/comments"))
+        await foreach (var comment in Paginate<GitHubIssueComment>(req,
+            $"repos/{owner}/{repo}/issues/{prNumber}/comments"))
         {
             if (comment.Body?.Contains(RevuSummaryMarker) == true)
             {
-                await client.PatchAsJsonAsync(
+                await SendAsync(req, HttpMethod.Patch,
                     $"repos/{owner}/{repo}/issues/comments/{comment.Id}",
                     new { body });
                 return;
             }
         }
 
-        await client.PostAsJsonAsync(
+        await SendAsync(req, HttpMethod.Post,
             $"repos/{owner}/{repo}/issues/{prNumber}/comments",
             new { body });
     }
 
-    private static async IAsyncEnumerable<T> Paginate<T>(HttpClient client, string url, int perPage = 100)
+    private async IAsyncEnumerable<T> Paginate<T>(ReviewRequest req, string url, int perPage = 100)
     {
         var page = 1;
 
         while (true)
         {
             var separator = url.Contains('?') ? '&' : '?';
-            var response = await client.GetAsync($"{url}{separator}per_page={perPage}&page={page}");
+            var response = await SendAsync(req, HttpMethod.Get,
+                $"{url}{separator}per_page={perPage}&page={page}");
 
             if (!response.IsSuccessStatusCode) yield break;
 
@@ -507,7 +500,7 @@ public partial class GitHubConnector(
     }
 
     private async Task RetryCommentsIndividually(
-        HttpClient client, string owner, string repo, int prNumber, string? headSha, object[] comments)
+        ReviewRequest req, string owner, string repo, int prNumber, string? headSha, object[] comments)
     {
         foreach (var comment in comments)
         {
@@ -527,7 +520,7 @@ public partial class GitHubConnector(
             if (headSha is not null)
                 payload["commit_id"] = headSha;
 
-            var response = await client.PostAsJsonAsync(
+            var response = await SendAsync(req, HttpMethod.Post,
                 $"repos/{owner}/{repo}/pulls/{prNumber}/reviews", payload);
 
             if (response.StatusCode != HttpStatusCode.UnprocessableEntity)
@@ -540,7 +533,7 @@ public partial class GitHubConnector(
                 if (stripped != bodyStr)
                 {
                     dict["body"] = stripped;
-                    response = await client.PostAsJsonAsync(
+                    response = await SendAsync(req, HttpMethod.Post,
                         $"repos/{owner}/{repo}/pulls/{prNumber}/reviews", payload);
 
                     if (response.StatusCode != HttpStatusCode.UnprocessableEntity)
@@ -550,7 +543,7 @@ public partial class GitHubConnector(
                 // Retry as single-line (drop start_line/start_side)
                 dict.Remove("start_line");
                 dict.Remove("start_side");
-                response = await client.PostAsJsonAsync(
+                response = await SendAsync(req, HttpMethod.Post,
                     $"repos/{owner}/{repo}/pulls/{prNumber}/reviews", payload);
 
                 if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
@@ -590,5 +583,4 @@ public partial class GitHubConnector(
     {
         public bool Contains(int line) => line >= Start && line <= End;
     }
-
 }

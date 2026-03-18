@@ -99,6 +99,14 @@ resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
 //   az functionapp config appsettings set -n func-revu -g rg-revu-prod \
 //     --settings "AzureDevOps__Organizations__<org>__Organization=<org>" \
 //                "AzureDevOps__Organizations__<org>__PersonalAccessToken=<pat>"
+//
+// GitHub App auth (recommended over PAT — comments post as revu[bot]):
+//   az functionapp config appsettings set -n func-revu -g rg-revu-prod \
+//     --settings "GitHub__AppId=<app-id>" \
+//                "GitHub__PrivateKey=@path/to/private-key.pem" \
+//                "GitHub__WebhookSecret=<webhook-secret>"
+//   Or reference a Key Vault secret for the private key:
+//     @Microsoft.KeyVault(SecretUri=https://<vault>.vault.azure.net/secrets/github-app-key)
 
 var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
 

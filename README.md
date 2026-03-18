@@ -18,7 +18,8 @@ AI code review for pull requests.
 Prerequisites: [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local),
 [Docker](https://docs.docker.com/get-docker/) (optional, for OpenObserve).
 
-Copy the template and fill in your ADO org, PAT (Code Read/Write scope), and AI keys:
+Copy the template and fill in your credentials and AI keys. GitHub supports both PAT and
+[GitHub App](docs/setup.md#github) auth (App recommended — comments post as `revu[bot]`):
 
 ```bash
 cp Revu/local.settings.example.json Revu/local.settings.json

@@ -32,6 +32,14 @@ ADO Code Search (`almsearch.dev.azure.com`) tokenizes queries and ANDs the token
 
 `GitHubConnector` implements `IGitConnector` using the GitHub REST API v3.
 
+## Authentication
+
+`GitHubAuthHandler` (`DelegatingHandler`) handles auth transparently in the HttpClient pipeline.
+**PAT mode**: static `Bearer <token>`. **App mode**: signs a JWT with the App's private key,
+exchanges it for a short-lived installation token (cached 55min), sets that as Bearer. The
+`InstallationId` comes from the webhook payload via `HttpRequestMessage.Options` — one App key
+serves all installations. Mode auto-selected based on whether `AppId`/`PrivateKey` are configured.
+
 ## GetDiff flow
 
 GitHub provides unified patches directly via the PR files endpoint — no local diffing needed
