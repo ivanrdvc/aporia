@@ -5,7 +5,7 @@ xUnit with `dotnet test`. Each test project has its own CLAUDE.md with specific 
 ## Running Unit Tests
 
 ```bash
-dotnet test tests/Revu.Tests.Unit/Revu.Tests.Unit.csproj
+dotnet test tests/Aporia.Tests.Unit/Aporia.Tests.Unit.csproj
 ```
 
 ## Shared Conventions

@@ -1,6 +1,6 @@
 ---
 name: test
-description: "Run Revu integration tests: /test [profile | session]"
+description: "Run Aporia integration tests: /test [profile | session]"
 user-invocable: true
 disable-model-invocation: true
 argument-hint: "[profile-hint | session]"
@@ -48,7 +48,7 @@ This skill is designed for repeated runs. **Minimize what enters Claude Code con
 
 ## Config file
 
-`tests/Revu.Tests.Integration/appsettings.test.json` — profiles live under `TestProfiles`.
+`tests/Aporia.Tests.Integration/appsettings.test.json` — profiles live under `TestProfiles`.
 `TestProfile` is the default. `TEST_PROFILE` env var overrides it at runtime.
 
 ```json
@@ -98,12 +98,12 @@ Use the profile's `Organization` and `RepositoryId` (format: `owner/repo`).
 sha=$(gh api repos/{owner}/{repo}/git/ref/heads/feature/order-tracking-notifications --jq '.object.sha')
 
 # Create temp branch
-branch="revu-test-$(date +%s)"
+branch="aporia-test-$(date +%s)"
 gh api repos/{owner}/{repo}/git/refs -f ref="refs/heads/$branch" -f sha="$sha"
 
 # Create PR and capture number
 pr_number=$(gh pr create --repo {owner}/{repo} --head "$branch" --base main \
-  --title "revu-test-$branch" --body "Automated test PR" | grep -o '[0-9]*$')
+  --title "aporia-test-$branch" --body "Automated test PR" | grep -o '[0-9]*$')
 
 echo "Created PR #$pr_number on branch $branch"
 ```
@@ -112,21 +112,21 @@ echo "Created PR #$pr_number on branch $branch"
 
 ```bash
 TEST_PROFILE={profile_name} TestTarget__PrId=$pr_number TestTarget__Branch="refs/heads/$branch" \
-  dotnet test tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj \
+  dotnet test tests/Aporia.Tests.Integration/Aporia.Tests.Integration.csproj \
   --filter "Review_FullPipeline_PostsFindings" \
-  --logger "console;verbosity=detailed" > /tmp/revu-test.log 2>&1
+  --logger "console;verbosity=detailed" > /tmp/aporia-test.log 2>&1
 ```
 
 ### Step 3 — Show the tail
 
 ```bash
-tail -15 /tmp/revu-test.log
+tail -15 /tmp/aporia-test.log
 ```
 
 ### Step 4 — Run verify
 
 ```bash
-python3 .claude/skills/test/scripts/verify.py --log /tmp/revu-test.log
+python3 .claude/skills/test/scripts/verify.py --log /tmp/aporia-test.log
 ```
 
 ### Step 5 — Close PR + delete branch
@@ -164,13 +164,13 @@ sha=$(az repos ref list --repository "$repo_id" --org "$org" --project "$project
   --query "[?name=='refs/heads/$source_branch'].objectId" -o tsv)
 
 # Create temp branch
-branch="revu-test-$(date +%s)"
+branch="aporia-test-$(date +%s)"
 az repos ref create --name "refs/heads/$branch" --object-id "$sha" \
   --repository "$repo_id" --org "$org" --project "$project"
 
 # Create PR and capture ID
 pr_id=$(az repos pr create --repository "$repo_id" --source-branch "$branch" \
-  --target-branch main --title "revu-test-$branch" \
+  --target-branch main --title "aporia-test-$branch" \
   --org "$org" --project "$project" --query 'pullRequestId' -o tsv)
 
 echo "Created PR #$pr_id on branch $branch"
@@ -180,21 +180,21 @@ echo "Created PR #$pr_id on branch $branch"
 
 ```bash
 TEST_PROFILE={profile_name} TestTarget__PrId=$pr_id TestTarget__Branch="refs/heads/$branch" \
-  dotnet test tests/Revu.Tests.Integration/Revu.Tests.Integration.csproj \
+  dotnet test tests/Aporia.Tests.Integration/Aporia.Tests.Integration.csproj \
   --filter "Review_FullPipeline_PostsFindings" \
-  --logger "console;verbosity=detailed" > /tmp/revu-test.log 2>&1
+  --logger "console;verbosity=detailed" > /tmp/aporia-test.log 2>&1
 ```
 
 ### Step 3 — Show the tail
 
 ```bash
-tail -15 /tmp/revu-test.log
+tail -15 /tmp/aporia-test.log
 ```
 
 ### Step 4 — Run verify
 
 ```bash
-python3 .claude/skills/test/scripts/verify.py --log /tmp/revu-test.log
+python3 .claude/skills/test/scripts/verify.py --log /tmp/aporia-test.log
 ```
 
 ### Step 5 — Abandon PR + delete branch
@@ -215,7 +215,7 @@ afterwards. **Done. Stop here.**
 Analyze the latest session run (or a specific one) for tool use performance:
 
 ```bash
-python3 .claude/skills/test/scripts/verify.py [session-dir] [--log /tmp/revu-test.log]
+python3 .claude/skills/test/scripts/verify.py [session-dir] [--log /tmp/aporia-test.log]
 ```
 
 Print the full script output to the user.
@@ -229,7 +229,7 @@ Integration tests capture every agent invocation as numbered JSON files via `Fil
 ### Location
 
 ```
-tests/Revu.Tests.Integration/bin/Debug/net10.0/sessions/run-{yyyyMMdd-HHmmss}/
+tests/Aporia.Tests.Integration/bin/Debug/net10.0/sessions/run-{yyyyMMdd-HHmmss}/
 ```
 
 Each run directory contains `01.json`, `02.json`, etc. — one per agent invocation, in order.

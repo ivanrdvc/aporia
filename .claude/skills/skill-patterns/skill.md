@@ -8,7 +8,7 @@ argument-hint: "[add <skill> | create <name>]"
 
 # Reviewer Skill Patterns
 
-Manage pattern reference skills that ship with the Revu reviewer (`Revu/Skills/`).
+Manage pattern reference skills that ship with the Aporia reviewer (`Aporia/Skills/`).
 
 ## Argument routing
 
@@ -21,7 +21,7 @@ Manage pattern reference skills that ship with the Revu reviewer (`Revu/Skills/`
 
 ### Skill resolution
 
-1. List directories under `Revu/Skills/`.
+1. List directories under `Aporia/Skills/`.
 2. Match the hint as a case-insensitive substring against directory names.
    - One match → use it.
    - Multiple → ask.
@@ -41,13 +41,13 @@ There are two kinds of reviewer skills. This skill manages **reference skills** 
 ## File structure
 
 ```
-Revu/Skills/<name>/
+Aporia/Skills/<name>/
   SKILL.md              — index with resource table + description
   <concern>.md          — resource file, one per concern area
   <concern>.md          — ...
 ```
 
-All files under `Revu/Skills/` are copied to build output via the csproj Content glob.
+All files under `Aporia/Skills/` are copied to build output via the csproj Content glob.
 
 ## SKILL.md format
 
@@ -108,10 +108,10 @@ Rules:
 ## Creating a new skill (`/skill-patterns create`)
 
 1. Ask the user for the technology and concern areas (or infer from context)
-2. Create the directory under `Revu/Skills/<name>/`
+2. Create the directory under `Aporia/Skills/<name>/`
 3. Write SKILL.md with the index format above
 4. Create initial resource files with entries
-5. Verify the build picks up the new files: `dotnet build Revu/Revu.csproj --no-restore`
+5. Verify the build picks up the new files: `dotnet build Aporia/Aporia.csproj --no-restore`
 
 ## Token budget
 
@@ -122,7 +122,7 @@ Keep resource files dense:
 
 ## Example
 
-`Revu/Skills/dotnet-architecture/di-patterns.md`:
+`Aporia/Skills/dotnet-architecture/di-patterns.md`:
 
 ```markdown
 ## `new X()` inside a singleton

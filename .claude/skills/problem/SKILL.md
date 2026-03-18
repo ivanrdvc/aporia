@@ -32,7 +32,7 @@ reviewer file means the run failed before finishing.
 
 **Location:**
 ```
-tests/Revu.Tests.Integration/bin/Debug/net10.0/sessions/run-{yyyyMMdd-HHmmss}/
+tests/Aporia.Tests.Integration/bin/Debug/net10.0/sessions/run-{yyyyMMdd-HHmmss}/
 ```
 
 **Envelope format:**
@@ -62,7 +62,7 @@ If OpenObserve is running (`docker compose up`), the verify script can fetch a t
 log timeline for a trace — exploration dispatches, warnings, errors — filtered for signal:
 
 ```bash
-python3 .claude/skills/test/scripts/verify.py --log /tmp/revu-test.log --otel
+python3 .claude/skills/test/scripts/verify.py --log /tmp/aporia-test.log --otel
 ```
 
 The timeline appears as `## OTEL Log Timeline` at the end of verify output. If a warning

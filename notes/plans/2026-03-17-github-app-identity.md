@@ -4,11 +4,11 @@ status: draft
 tags: [github, auth, identity]
 ---
 
-# GitHub App Identity for Revu
+# GitHub App Identity for Aporia
 
 ## Problem Statement
 
-Revu posts review comments using a personal access token (PAT), so all comments appear as the PAT
+Aporia posts review comments using a personal access token (PAT), so all comments appear as the PAT
 owner's personal GitHub account. This is confusing for PR authors ("is this Ivan or the bot?"),
 makes it harder to filter/mute bot comments, and ties the service to a personal credential that
 must be manually rotated. ADO has the same PAT-as-person problem but lacks a first-party "App"
@@ -16,18 +16,18 @@ equivalent.
 
 ## Decision Drivers
 
-- Comments should clearly come from a bot identity (`revu[bot]`), not a person
+- Comments should clearly come from a bot identity (`aporia[bot]`), not a person
 - Short-lived, auto-rotated tokens are preferred over long-lived PATs
-- Must support per-repo installation (org admins can control which repos Revu accesses)
+- Must support per-repo installation (org admins can control which repos Aporia accesses)
 - ADO doesn't have a GitHub App equivalent — service principal or dedicated account are the options
 - Existing PAT flow must remain as fallback during migration and for ADO
 
 ## Solution
 
 **GitHub:** Register a GitHub App. Auth switches from a static PAT to: App private key →
-installation access token (short-lived, 1hr expiry, auto-rotated). Comments post as `revu[bot]`.
+installation access token (short-lived, 1hr expiry, auto-rotated). Comments post as `aporia[bot]`.
 
-**ADO:** Create a dedicated service account (`revu-bot@`) with a scoped PAT (Code Read/Write).
+**ADO:** Create a dedicated service account (`aporia-bot@`) with a scoped PAT (Code Read/Write).
 Comments post as that account. Service principal via Entra ID is the longer-term path but requires
 Entra admin access.
 
@@ -89,12 +89,12 @@ BouncyCastle, no GitHubJwt NuGet needed. Clean for a .NET 10 project.
 `AdoOptions`. Provider is selected per-request from `ReviewRequest.Provider`.
 
 **Key files:**
-- `Revu/Git/GitHubOptions.cs` — token config (lines 14-17)
-- `Revu/Git/GitHubConnector.cs` — HTTP client, auth header, PostReview (lines 167-281, 386)
-- `Revu/Git/AdoOptions.cs` — PAT config (lines 14-17)
-- `Revu/Git/AdoConnector.cs` — VssBasicCredential, PostReview (lines 38, 194-258)
-- `Revu/Functions/WebhookFunction.cs` — webhook validation (lines 60-80)
-- `Revu/Program.cs` — options binding (lines 26-27)
+- `Aporia/Git/GitHubOptions.cs` — token config (lines 14-17)
+- `Aporia/Git/GitHubConnector.cs` — HTTP client, auth header, PostReview (lines 167-281, 386)
+- `Aporia/Git/AdoOptions.cs` — PAT config (lines 14-17)
+- `Aporia/Git/AdoConnector.cs` — VssBasicCredential, PostReview (lines 38, 194-258)
+- `Aporia/Functions/WebhookFunction.cs` — webhook validation (lines 60-80)
+- `Aporia/Program.cs` — options binding (lines 26-27)
 
 ## Implementation Steps
 
@@ -106,12 +106,12 @@ BouncyCastle, no GitHubJwt NuGet needed. Clean for a .NET 10 project.
    - Note the App ID and Installation ID
 
 2. **Extend `GitHubOptions` with App credentials**
-   - Files: `Revu/Git/GitHubOptions.cs`
+   - Files: `Aporia/Git/GitHubOptions.cs`
    - Add `AppId` (long), `PrivateKey` (string, PEM), `InstallationId` (long) alongside existing `Token`
    - Keep `Token` as optional fallback for PAT-based auth
 
 3. **Add GitHub App token provider**
-   - Files: new `Revu/Git/GitHubAppTokenProvider.cs`
+   - Files: new `Aporia/Git/GitHubAppTokenProvider.cs`
    - JWT generation: `RSA.ImportFromPem()` + `System.IdentityModel.Tokens.Jwt` (no external crypto deps)
    - 60-second clock drift buffer on `iat` (matches GitHub docs recommendation)
    - Token exchange: `POST /app/installations/{id}/access_tokens` with `Bearer {jwt}`
@@ -121,28 +121,28 @@ BouncyCastle, no GitHubJwt NuGet needed. Clean for a .NET 10 project.
    - NuGet: `System.IdentityModel.Tokens.Jwt` + `Microsoft.IdentityModel.Tokens`
 
 4. **Update `GitHubConnector` to use token provider**
-   - Files: `Revu/Git/GitHubConnector.cs`
+   - Files: `Aporia/Git/GitHubConnector.cs`
    - Replace static `Bearer <token>` header with `await tokenProvider.GetTokenAsync()`
    - If `AppId` is configured, use App flow; otherwise fall back to PAT
    - `User-Agent` header should identify the app (GitHub requires this for App API calls)
 
 5. **Update webhook validation**
-   - Files: `Revu/Functions/WebhookFunction.cs`
+   - Files: `Aporia/Functions/WebhookFunction.cs`
    - GitHub App webhooks use the same HMAC-SHA256 mechanism — existing validation works
    - Webhook secret moves from standalone config to the App's webhook secret
 
 6. **Update configuration and secrets**
-   - Files: `Revu/Program.cs`, `Revu/local.settings.example.json`
+   - Files: `Aporia/Program.cs`, `Aporia/local.settings.example.json`
    - Bind new App fields: `GitHub__AppId`, `GitHub__PrivateKey`, `GitHub__InstallationId`
    - Private key stored in Azure Key Vault (referenced via app setting), not inline
 
 7. **ADO: Create dedicated service account**
-   - No code changes — just use a different PAT from a `revu-bot@` account
+   - No code changes — just use a different PAT from a `aporia-bot@` account
    - Update deployment config to use the bot account's PAT
 
 ## Open Questions
 
 - [ ] Org-owned App vs personal App? Org-owned is better for team visibility but requires org admin
-- [ ] Multi-installation support? Current model is one installation per config key. If Revu serves multiple orgs, need installation ID resolution from webhook payload (`installation.id`)
+- [ ] Multi-installation support? Current model is one installation per config key. If Aporia serves multiple orgs, need installation ID resolution from webhook payload (`installation.id`)
 - [ ] Should the private key be stored as a Key Vault secret or as a certificate? PEM string in Key Vault is simplest
 - [ ] ADO: is a service principal (Entra ID) worth pursuing now, or is a bot account sufficient for the near term?

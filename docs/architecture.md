@@ -2,11 +2,11 @@
 
 ## Strategy Layer
 
-Revu supports multiple review strategies, each backed by a different agent runtime. The
-`Reviewer` resolves a strategy by key from a DI factory based on `.revu.json` config:
+Aporia supports multiple review strategies, each backed by a different agent runtime. The
+`Reviewer` resolves a strategy by key from a DI factory based on `.aporia.json` config:
 
 ```
-.revu.json: "strategy": "core" | "copilot" | "claude-code"
+.aporia.json: "strategy": "core" | "copilot" | "claude-code"
                     │
                     ▼
             ┌───────────────┐
@@ -122,7 +122,7 @@ result is an error message. Raw text never flows back to the reviewer.
 ### Skills
 
 Skills are domain-specific review knowledge that the reviewer can load on demand. Each skill is a
-`SKILL.md` file (YAML frontmatter + markdown instructions) under `Revu/Skills/`, following the
+`SKILL.md` file (YAML frontmatter + markdown instructions) under `Aporia/Skills/`, following the
 [Agent Skills](https://agentskills.io/) open standard.
 
 MAF's `FileAgentSkillsProvider` handles discovery, parsing, and tool registration. It's added to the
@@ -135,7 +135,7 @@ Delivery:    full instructions returned as tool result                (messages 
 Resources:   reviewer calls read_skill_resource(name, file)          (supplementary files, on demand)
 ```
 
-Since skills ship with Revu (not per-repo), the advertisement and tools are identical across all
+Since skills ship with Aporia (not per-repo), the advertisement and tools are identical across all
 reviews, so the tools + system prompt layers stay cacheable.
 
 Skills are reviewer capabilities, not project configuration. They represent what the reviewer
@@ -192,7 +192,7 @@ The reviewer agent's input is composed from multiple independent sources via MAF
 | Layer                 | Source                                      | Content                                |
 |-----------------------|---------------------------------------------|----------------------------------------|
 | Instructions          | `Prompts.BuildReviewerInstructions()`       | How to review (rules, severity, format)|
-| Instructions (merged) | `PrContextProvider`                         | PR title/desc/commits, linked work items (ADO, `EnableWorkItems`), project context + rules from `.revu.json` |
+| Instructions (merged) | `PrContextProvider`                         | PR title/desc/commits, linked work items (ADO, `EnableWorkItems`), project context + rules from `.aporia.json` |
 | Instructions (merged) | `LearningsProvider` (planned)               | Learnings from past review feedback    |
 | Tools (advertised)    | `FileAgentSkillsProvider`                   | Skill names + descriptions             |
 | User message          | `BuildReviewPrompt(diff)`                   | The diff                               |

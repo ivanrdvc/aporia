@@ -19,6 +19,6 @@
 - Work item integration — fetch linked work items as additional review context
 - Local repo cloning support for tool-based reviews
 - Auto-detect per-repo metadata (language version, framework) to reduce false positives
-- Feature-level config system — per-repo feature toggles on `Repository` entity (app-owner controls) and `.revu.json` `ProjectConfig` overrides (project-owner controls). Three-tier precedence: global `RevuOptions` > per-repo `Repository` > `.revu.json`. Applies to incremental reviews, code graph, chat, and future flags.
+- Feature-level config system — per-repo feature toggles on `Repository` entity (app-owner controls) and `.aporia.json` `ProjectConfig` overrides (project-owner controls). Three-tier precedence: global `AporiaOptions` > per-repo `Repository` > `.aporia.json`. Applies to incremental reviews, code graph, chat, and future flags.
 - GitHub webhook: subscribe to `pull_request.ready_for_review` (draft→ready transition) to trigger reviews when PRs leave draft state
 - GitHub chat: subscribe to `pull_request_review_comment.edited` for cache invalidation when users edit comments in review threads

@@ -1,0 +1,26 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "AzureDevOps__Organizations__myorg__Organization": "<your-ado-org>",
+    "AzureDevOps__Organizations__myorg__PersonalAccessToken": "<your-ado-pat>",
+    "GitHub__Token": "<your-github-pat (optional if using App)>",
+    "GitHub__AppId": "",
+    "GitHub__PrivateKey": "",
+    "GitHub__WebhookSecret": "<your-github-webhook-secret>",
+    "Ai__Models__default": "anthropic/claude-haiku-4-5",
+    "Ai__Models__reasoning": "anthropic/claude-haiku-4-5",
+    "Ai__OpenAI__ApiKey": "<your-openai-api-key>",
+    "Ai__Anthropic__ApiKey": "",
+    "Ai__AzureOpenAI__Endpoint": "",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:5080/api/default",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Basic <your-openobserve-token>,organization=default,stream-name=default",
+    "OTEL_SERVICE_NAME": "Aporia-local",
+    "Aporia__EnableIncrementalReviews": "true",
+    "Aporia__EnableCodeGraph": "true",
+    "Aporia__EnableChat": "true",
+    "Cosmos__ConnectionString": "<your-cosmos-connection-string>"
+  }
+}

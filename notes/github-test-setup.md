@@ -14,7 +14,7 @@ the `/test` skill to be provider-aware.
 
 ### 2. Test infrastructure refactored to be provider-agnostic
 
-- **`ITestHelper`** interface (`BuildRequest`, `CleanComments`, `GetRevuCommentCount`, `PrintComments`)
+- **`ITestHelper`** interface (`BuildRequest`, `CleanComments`, `GetAporiaCommentCount`, `PrintComments`)
 - **`AdoTestHelper`** — ADO implementation (replaced static `AdoThreadHelper`)
 - **`GitHubTestHelper`** — GitHub implementation (uses REST API via `HttpClient`)
 - **`IntegrationTestBase`** — `GitClient` (ADO-specific) replaced with `ITestHelper`
@@ -28,7 +28,7 @@ the `/test` skill to be provider-aware.
 
 ### 4. Secrets configured
 
-Both `Revu.csproj` and `Revu.Tests.Integration.csproj` user-secrets:
+Both `Aporia.csproj` and `Aporia.Tests.Integration.csproj` user-secrets:
 
 ```
 GitHub:Token = <gh-pat>
@@ -138,7 +138,7 @@ key — it likely reads the PR ID from the test log/config and looks it up.
 ## Files Changed
 
 ```
-tests/Revu.Tests.Integration/
+tests/Aporia.Tests.Integration/
   Fixtures/
     ITestHelper.cs                  (new)
     AdoTestHelper.cs                (new — replaces AdoThreadHelper.cs)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Verify script for Revu integration test runs.
+Verify script for Aporia integration test runs.
 
 Parses session JSON files and optionally a test log file to produce a structured
 summary of agent behavior, tool usage, and token consumption.
@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 # .claude/skills/test/scripts/verify.py → parents[4] = repo root
 SESSIONS_ROOT = (
     Path(__file__).resolve().parents[4]
-    / "tests" / "Revu.Tests.Integration" / "bin" / "Debug" / "net10.0" / "sessions"
+    / "tests" / "Aporia.Tests.Integration" / "bin" / "Debug" / "net10.0" / "sessions"
 )
 HISTORY_FILE = SESSIONS_ROOT / "runs.log"
 

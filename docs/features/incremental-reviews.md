@@ -49,13 +49,13 @@ public record Diff(List<FileChange> Files, string? Cursor = null);
 Each finding gets a fingerprint: SHA256 of `"{filePath}|{normalizedMessage}"`. Position-independent
 (line numbers shift between iterations). Case-insensitive, trimmed.
 
-Before posting, `PostReview` fetches all existing threads and collects fingerprints from Revu
-threads (identified by `revu:version` property). If a finding's fingerprint already exists, it's
+Before posting, `PostReview` fetches all existing threads and collects fingerprints from Aporia
+threads (identified by `aporia:version` property). If a finding's fingerprint already exists, it's
 skipped.
 
 New threads are stamped with:
-- `revu:version` = `"1"`: identifies Revu-created threads
-- `revu:fingerprint` = the SHA256 hash, used for future dedup
+- `aporia:version` = `"1"`: identifies Aporia-created threads
+- `aporia:fingerprint` = the SHA256 hash, used for future dedup
 
 ### State persistence — `PostReview`
 
@@ -90,7 +90,7 @@ Configuration:
 
 ```json
 {
-  "Revu": { "EnableIncrementalReviews": true },
+  "Aporia": { "EnableIncrementalReviews": true },
   "Cosmos": { "ConnectionString": "..." }
 }
 ```

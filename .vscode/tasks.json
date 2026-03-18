@@ -12,7 +12,7 @@
       "type": "process",
       "problemMatcher": "$msCompile",
       "options": {
-        "cwd": "${workspaceFolder}/Revu"
+        "cwd": "${workspaceFolder}/Aporia"
       }
     },
     {
@@ -31,7 +31,7 @@
       },
       "problemMatcher": "$msCompile",
       "options": {
-        "cwd": "${workspaceFolder}/Revu"
+        "cwd": "${workspaceFolder}/Aporia"
       }
     },
     {
@@ -47,7 +47,7 @@
       "type": "process",
       "problemMatcher": "$msCompile",
       "options": {
-        "cwd": "${workspaceFolder}/Revu"
+        "cwd": "${workspaceFolder}/Aporia"
       }
     },
     {
@@ -68,7 +68,7 @@
       "dependsOn": "clean release (functions)",
       "problemMatcher": "$msCompile",
       "options": {
-        "cwd": "${workspaceFolder}/Revu"
+        "cwd": "${workspaceFolder}/Aporia"
       }
     },
     {
@@ -94,7 +94,7 @@
         "start azurite"
       ],
       "options": {
-        "cwd": "${workspaceFolder}/Revu/bin/Debug/net10.0"
+        "cwd": "${workspaceFolder}/Aporia/bin/Debug/net10.0"
       },
       "command": "host start",
       "isBackground": true,

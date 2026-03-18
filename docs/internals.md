@@ -54,17 +54,17 @@ is truncated or the cursor SHA is gone (force-push), falls back to full PR file 
 Comments are posted as pull request reviews (inline) + an issue comment (summary). Key
 differences from ADO:
 
-- **Dedup**: HTML comment fingerprints (`<!-- revu:fp:hash -->`) in comment bodies, matched
+- **Dedup**: HTML comment fingerprints (`<!-- aporia:fp:hash -->`) in comment bodies, matched
   via regex on existing review comments. ADO uses thread properties.
 - **Line placement**: comments must target lines within diff hunks. Lines outside hunks go
   into the review body as a text list.
 - **Retry chain**: GitHub returns 422 for invalid comment positions. Fallback sequence:
   batch → individual → strip suggestion → single-line → skip.
-- **Summary**: upserted as an issue comment with a marker (`<!-- revu:summary -->`).
+- **Summary**: upserted as an issue comment with a marker (`<!-- aporia:summary -->`).
 
 # Cosmos DB
 
-Single database (`revu`), one Cosmos account. All stores are singletons that take `CosmosDb` (shared `CosmosClient` wrapper in `Infra/Cosmos/`). Each store owns a private `Document` class for serialization and exposes a clean public record.
+Single database (`aporia`), one Cosmos account. All stores are singletons that take `CosmosDb` (shared `CosmosClient` wrapper in `Infra/Cosmos/`). Each store owns a private `Document` class for serialization and exposes a clean public record.
 
 ## Containers
 
@@ -93,12 +93,12 @@ To test with real ADO webhooks locally: create a persistent dev tunnel so the UR
 restarts (no need to update ADO each time):
 
 ```bash
-devtunnel create revu --allow-anonymous
-devtunnel port create revu -p 7071
-devtunnel host revu          # prints the fixed URL
+devtunnel create aporia --allow-anonymous
+devtunnel port create aporia -p 7071
+devtunnel host aporia          # prints the fixed URL
 ```
 
-On subsequent sessions, just `devtunnel host revu` — same URL.
+On subsequent sessions, just `devtunnel host aporia` — same URL.
 
 ADO service hooks needed for local testing:
 
@@ -108,5 +108,5 @@ ADO service hooks needed for local testing:
 | `Pull request updated` | `{tunnel-url}/api/webhook/ado` | Incremental review |
 | `Pull request commented on` | `{tunnel-url}/api/webhook/ado/comment` | Chat pipeline |
 
-Then `func start` — PR events and `@revu` comments on any registered repo will flow through
+Then `func start` — PR events and `@aporia` comments on any registered repo will flow through
 the local pipeline.

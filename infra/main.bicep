@@ -2,7 +2,7 @@
 param location string = resourceGroup().location
 
 @description('Base name for all resources')
-param appName string = 'revu'
+param appName string = 'aporia'
 
 @secure()
 @description('OpenAI API key')
@@ -78,9 +78,9 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
 
 resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-05-15' = {
   parent: cosmosAccount
-  name: 'revu'
+  name: 'aporia'
   properties: {
-    resource: { id: 'revu' }
+    resource: { id: 'aporia' }
   }
 }
 
@@ -96,12 +96,12 @@ resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
 
 // ---------- Function App ----------
 // Git provider orgs (ADO, GitHub) are runtime config — add via:
-//   az functionapp config appsettings set -n func-revu -g rg-revu-prod \
+//   az functionapp config appsettings set -n func-aporia -g rg-aporia-prod \
 //     --settings "AzureDevOps__Organizations__<org>__Organization=<org>" \
 //                "AzureDevOps__Organizations__<org>__PersonalAccessToken=<pat>"
 //
-// GitHub App auth (recommended over PAT — comments post as revu[bot]):
-//   az functionapp config appsettings set -n func-revu -g rg-revu-prod \
+// GitHub App auth (recommended over PAT — comments post as aporia[bot]):
+//   az functionapp config appsettings set -n func-aporia -g rg-aporia-prod \
 //     --settings "GitHub__AppId=<app-id>" \
 //                "GitHub__PrivateKey=@path/to/private-key.pem" \
 //                "GitHub__WebhookSecret=<webhook-secret>"
@@ -145,9 +145,9 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'Ai__Models__reasoning', value: 'anthropic/claude-haiku-4-5' }
         { name: 'Ai__OpenAI__ApiKey', value: aiOpenAiKey }
         { name: 'Ai__Anthropic__ApiKey', value: aiAnthropicKey }
-        { name: 'Revu__EnableIncrementalReviews', value: 'true' }
-        { name: 'Revu__EnableCodeGraph', value: 'true' }
-        { name: 'Revu__EnableChat', value: 'false' }
+        { name: 'Aporia__EnableIncrementalReviews', value: 'true' }
+        { name: 'Aporia__EnableCodeGraph', value: 'true' }
+        { name: 'Aporia__EnableChat', value: 'false' }
       ]
     }
   }
