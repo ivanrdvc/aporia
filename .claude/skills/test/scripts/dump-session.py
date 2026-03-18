@@ -16,7 +16,7 @@ from pathlib import Path
 
 SESSIONS_ROOT = (
     Path(__file__).resolve().parents[4]
-    / "tests" / "Revu.Tests.Integration" / "bin" / "Debug" / "net10.0" / "sessions"
+    / "tests" / "Aporia.Tests.Integration" / "bin" / "Debug" / "net10.0" / "sessions"
 )
 
 

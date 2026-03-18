@@ -59,7 +59,7 @@ Sequential, concurrent, conditional, human-in-the-loop, checkpointing, shared st
 | `HostedAgents` | ASP.NET hosted agents |
 | `Durable` | Durable task / long-running agents |
 
-## Patterns used in Revu
+## Patterns used in Aporia
 
 ### Agent-as-tool (nested agents)
 

@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="CLAUDE.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/docs/">
+    <File Path="docs\observability.md" />
+    <File Path="docs\architecture.md" />
+    <File Path="docs\index.md" />
+    <File Path="docs\internals.md" />
+  </Folder>
+  <Folder Name="/Solution Items/docs/features/">
+    <File Path="docs\features\incremental-reviews.md" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Aporia.Tests.Eval/Aporia.Tests.Eval.csproj" />
+    <Project Path="tests/Aporia.Tests.Integration/Aporia.Tests.Integration.csproj" />
+    <Project Path="tests/Aporia.Tests.Unit/Aporia.Tests.Unit.csproj" />
+  </Folder>
+  <Project Path="Aporia/Aporia.csproj" />
+</Solution>

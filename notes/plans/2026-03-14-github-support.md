@@ -8,9 +8,9 @@ tags: [github, git-connector, webhook, multi-provider]
 
 ## Problem Statement
 
-Revu currently only supports Azure DevOps as a git provider. The `IGitConnector` interface and
+Aporia currently only supports Azure DevOps as a git provider. The `IGitConnector` interface and
 `GitProvider` enum already declare GitHub as a valid provider, but no implementation exists.
-Adding GitHub support would let Revu review PRs on GitHub repositories using the same pipeline
+Adding GitHub support would let Aporia review PRs on GitHub repositories using the same pipeline
 (WebhookFunction → queue → ReviewFunction) that ADO uses today.
 
 ## Decision Drivers
@@ -76,7 +76,7 @@ ReviewFunction stays single — resolves the right connector by provider key.
 
 GitHub has a first-class review concept. One `POST /repos/{owner}/{repo}/pulls/{pr}/reviews`:
 
-**Posting style: Option B (split).** Summary as editable issue comment (`<!-- revu:summary -->`
+**Posting style: Option B (split).** Summary as editable issue comment (`<!-- aporia:summary -->`
 marker), findings as separate review. Two API calls. This is the only option that supports clean
 re-reviews (PATCH summary, dismiss+repost findings). Step 0 spike validates the visual layout
 before implementation — the architectural decision is made.
@@ -122,20 +122,20 @@ Review payload:
   lines (paired delete+add in the diff). When a finding's range spans deletions, drop `CodeFix`
   (post finding as plain comment without the suggestion). Detect by checking the diff hunk for
   `-` lines within the `start_line..line` range.
-- Fingerprint for dedup: embed as HTML comment `<!-- revu:fp:abc123 -->` in comment body.
+- Fingerprint for dedup: embed as HTML comment `<!-- aporia:fp:abc123 -->` in comment body.
 
 **Dedup strategy:**
 - Fetch all existing review comments in one call: `GET /pulls/{pr}/comments` (paginated, returns
-  all review comments across all reviews). Parse `<!-- revu:fp:... -->` from bodies.
+  all review comments across all reviews). Parse `<!-- aporia:fp:... -->` from bodies.
 - Single paginated call, no N+1 problem.
 
 **Re-review behavior — edit in place:**
-- On re-review, `PostReview` finds the previous revu review by scanning for the fingerprint
-  marker (`<!-- revu:review -->`) in existing reviews/comments.
+- On re-review, `PostReview` finds the previous aporia review by scanning for the fingerprint
+  marker (`<!-- aporia:review -->`) in existing reviews/comments.
 - **Summary**: posted as an issue comment (not in the review body) so it can be edited in place
   across runs. On re-review, find the previous summary comment and `PATCH` it. One summary
   comment per PR, always current.
-- **Inline findings**: dismiss the previous revu review (`PUT /reviews/{id}/dismissals`), then
+- **Inline findings**: dismiss the previous aporia review (`PUT /reviews/{id}/dismissals`), then
   post a new review with current findings. Only one active set of inline comments at a time.
 - This keeps the PR timeline clean regardless of how many re-reviews happen — critical for
   both production use and high-volume testing.
@@ -171,17 +171,17 @@ a PR exceeds 3,000 files (analogous to ADO's 5,000-file cap).
 
 ### Current Architecture
 
-**IGitConnector** (`Revu/Git/IGitConnector.cs`): 7 methods — `GetConfig`, `GetDiff`, `PostReview`,
+**IGitConnector** (`Aporia/Git/IGitConnector.cs`): 7 methods — `GetConfig`, `GetDiff`, `PostReview`,
 `GetFile`, `ListFiles`, `SearchCode`, `GetPrContext`. All take `ReviewRequest` as first arg.
 
-**AdoConnector** (`Revu/Git/AdoConnector.cs`): Currently takes two org-keyed dictionaries via DI.
+**AdoConnector** (`Aporia/Git/AdoConnector.cs`): Currently takes two org-keyed dictionaries via DI.
 Key behaviors: incremental reviews via iteration comparison, comment dedup via SHA256 fingerprint,
 parallel file reads (10 concurrent), DiffBuilder for unified diff hunks.
 
-**WebhookFunction** (`Revu/Functions/WebhookFunction.cs`): Single route `POST /webhook/ado`.
+**WebhookFunction** (`Aporia/Functions/WebhookFunction.cs`): Single route `POST /webhook/ado`.
 Reads `AdoWebhook`, calls `ToRequest()`, validates repo in RepoStore, injects Organization, enqueues.
 
-**ReviewFunction** (`Revu/Functions/ReviewFunction.cs`): Injects `IGitConnector` directly (not keyed).
+**ReviewFunction** (`Aporia/Functions/ReviewFunction.cs`): Injects `IGitConnector` directly (not keyed).
 Pipeline: GetConfig → GetDiff → Review → PostReview.
 
 **RepoStore**: `Repository` already has `GitProvider Provider` field.
@@ -194,7 +194,7 @@ Pipeline: GetConfig → GetDiff → Review → PostReview.
 
 | IGitConnector method | GitHub REST API |
 |---------------------|-----------------|
-| `GetConfig` | `GET /repos/{owner}/{repo}/contents/.revu.json?ref={targetBranch}` |
+| `GetConfig` | `GET /repos/{owner}/{repo}/contents/.aporia.json?ref={targetBranch}` |
 | `GetDiff` | `GET /repos/{owner}/{repo}/pulls/{pr}/files` (paginated, max 300/page) |
 | `PostReview` | `POST /repos/{owner}/{repo}/pulls/{pr}/reviews` (batch) |
 | `GetFile` | `GET /repos/{owner}/{repo}/contents/{path}?ref={sourceBranch}` |
@@ -248,9 +248,9 @@ HEAD_SHA=$(gh api repos/{owner}/{repo}/pulls/{pr} --jq '.head.sha')
 
 # 1. Summary as issue comment (editable via PATCH on re-review)
 gh api repos/{owner}/{repo}/issues/{pr}/comments \
-  -f body='<!-- revu:summary -->
+  -f body='<!-- aporia:summary -->
 ### Pull request overview
-Summary text here. Revu reviewed 3 files.
+Summary text here. Aporia reviewed 3 files.
 
 <details><summary>Show a summary per file</summary>
 
@@ -263,10 +263,10 @@ Summary text here. Revu reviewed 3 files.
 gh api repos/{owner}/{repo}/pulls/{pr}/reviews \
   -f commit_id="$HEAD_SHA" \
   -f event=COMMENT \
-  -f body='<!-- revu:review -->' \
+  -f body='<!-- aporia:review -->' \
   -f 'comments=[
-    {"path":"src/Foo.cs","line":42,"side":"RIGHT","body":"<!-- revu:fp:a1b2c3 -->\nMissing null check on `input` — will throw if caller passes null.\n\n```suggestion\nif (input is null) throw new ArgumentNullException(nameof(input));\n```"},
-    {"path":"src/Bar.cs","line":15,"start_line":12,"side":"RIGHT","start_side":"RIGHT","body":"<!-- revu:fp:d4e5f6 -->\nHttpClient created per request — can cause socket exhaustion under load."}
+    {"path":"src/Foo.cs","line":42,"side":"RIGHT","body":"<!-- aporia:fp:a1b2c3 -->\nMissing null check on `input` — will throw if caller passes null.\n\n```suggestion\nif (input is null) throw new ArgumentNullException(nameof(input));\n```"},
+    {"path":"src/Bar.cs","line":15,"start_line":12,"side":"RIGHT","start_side":"RIGHT","body":"<!-- aporia:fp:d4e5f6 -->\nHttpClient created per request — can cause socket exhaustion under load."}
   ]'
 ```
 
@@ -278,7 +278,7 @@ gh api repos/{owner}/{repo}/pulls/{pr}/reviews \
 
 ### Step 1 — Refactor ADO client ownership
 
-**Files:** `Revu/Git/AdoConnector.cs`, `Revu/Infra/ServiceCollectionExtensions.cs`
+**Files:** `Aporia/Git/AdoConnector.cs`, `Aporia/Infra/ServiceCollectionExtensions.cs`
 
 - AdoConnector: replace two `IReadOnlyDictionary` constructor params with `IOptions<AdoOptions>`.
   Add private `ConcurrentDictionary` fields, build clients lazily via `GetOrAdd`.
@@ -289,8 +289,8 @@ gh api repos/{owner}/{repo}/pulls/{pr}/reviews \
 
 ### Step 2 — Switch to keyed services and thread connector through the call chain
 
-**Files:** `Revu/Program.cs`, `Revu/Functions/ReviewFunction.cs`, `Revu/Review/IReviewStrategy.cs`,
-`Revu/Review/Reviewer.cs`, `Revu/Review/CoreStrategy.cs`
+**Files:** `Aporia/Program.cs`, `Aporia/Functions/ReviewFunction.cs`, `Aporia/Review/IReviewStrategy.cs`,
+`Aporia/Review/Reviewer.cs`, `Aporia/Review/CoreStrategy.cs`
 
 **The problem:** Currently `CoreStrategy` receives `IGitConnector` via DI constructor injection
 (line 19 of `CoreStrategy.cs`). When we switch to keyed registrations, the DI container has no way
@@ -364,7 +364,7 @@ from DI injection to method parameter.
 
 ### Step 3 — GitHub options and client registration
 
-**Files:** `Revu/Git/GitHubOptions.cs` (new), `Revu/Infra/ServiceCollectionExtensions.cs`
+**Files:** `Aporia/Git/GitHubOptions.cs` (new), `Aporia/Infra/ServiceCollectionExtensions.cs`
 
 - `GitHubOptions` with `Dictionary<string, GitHubOrgConfig>` (each has `Owner` and `Token`).
   `WebhookSecret`: single global secret for HMAC validation.
@@ -377,14 +377,14 @@ from DI injection to method parameter.
 
 ### Step 4 — GitHub webhook model
 
-**Files:** `Revu/Git/GitHubWebhook.cs` (new)
+**Files:** `Aporia/Git/GitHubWebhook.cs` (new)
 
 - Records for GitHub webhook payload: action, pull_request, repository.
 - `ToRequest()`: filter to `opened`/`synchronize`/`reopened`, skip drafts, map to `ReviewRequest`.
 
 ### Step 5 — GitHub webhook endpoint
 
-**Files:** `Revu/Functions/WebhookFunction.cs`
+**Files:** `Aporia/Functions/WebhookFunction.cs`
 
 - Add `WebhookGitHub()` method, route `POST /webhook/github`.
 - Validate `X-Hub-Signature-256` HMAC.
@@ -393,9 +393,9 @@ from DI injection to method parameter.
 
 ### Step 6 — Implement GitHubConnector
 
-**Files:** `Revu/Git/GitHubConnector.cs` (new)
+**Files:** `Aporia/Git/GitHubConnector.cs` (new)
 
-- Constructor: `IOptions<GitHubOptions>`, `IPrStateStore`, `IOptions<RevuOptions>`,
+- Constructor: `IOptions<GitHubOptions>`, `IPrStateStore`, `IOptions<AporiaOptions>`,
   `ILogger<GitHubConnector>`.
 - `GetConfig`: Contents API at target branch, base64-decode, `ProjectConfig.Parse()`.
 - `GetDiff`: PR files API with `per_page=300` (paginate via `Link` header, bail at 3,000 files),
@@ -410,10 +410,10 @@ from DI injection to method parameter.
   - CodeFix as ` ```suggestion ` block. Drop CodeFix when range spans deleted lines.
   - 422 fallback: retry all individually → strip suggestion → single-line → skip (see above).
   - Dedup: `GET /pulls/{pr}/comments` (single paginated call for all review comments across
-    all reviews), parse `<!-- revu:fp:... -->` from bodies.
-  - Fingerprint embed as `<!-- revu:fp:abc123 -->` in comment body.
-  - Re-review: find previous summary comment by `<!-- revu:summary -->` marker, PATCH it.
-    Find previous review by `<!-- revu:review -->` marker in review body, dismiss it.
+    all reviews), parse `<!-- aporia:fp:... -->` from bodies.
+  - Fingerprint embed as `<!-- aporia:fp:abc123 -->` in comment body.
+  - Re-review: find previous summary comment by `<!-- aporia:summary -->` marker, PATCH it.
+    Find previous review by `<!-- aporia:review -->` marker in review body, dismiss it.
     Post new review with current findings.
   - **30-comment limit:** GitHub caps `comments[]` at 30 per review API call. `MaxComments`
     defaults to 5 so this is unlikely to hit, but if exceeded, batch into multiple reviews.
@@ -430,15 +430,15 @@ Add retry-after header handling for 403 responses.
 
 ### Step 7 — Wire up in Program.cs
 
-**Files:** `Revu/Program.cs`
+**Files:** `Aporia/Program.cs`
 
 - Call `AddGitHubClient()` alongside `AddAdoClient()`.
 - `AddKeyedSingleton<IGitConnector, GitHubConnector>(GitProvider.GitHub)`.
 
 ### Step 8 — Unit tests
 
-**Files:** `tests/Revu.Tests.Unit/Git/GitHubConnectorTests.cs` (new),
-`tests/Revu.Tests.Unit/Git/GitHubWebhookTests.cs` (new)
+**Files:** `tests/Aporia.Tests.Unit/Git/GitHubConnectorTests.cs` (new),
+`tests/Aporia.Tests.Unit/Git/GitHubWebhookTests.cs` (new)
 
 - Webhook parsing: action filtering, draft filtering, field mapping.
 - Connector: fingerprint dedup, cursor handling, hunk validation for review posting.
@@ -505,7 +505,7 @@ and use `/test` to iterate on review quality, just like we do with ADO today.
 
 ### Integration test infrastructure
 
-**AppFixture** (`tests/Revu.Tests.Integration/Fixtures/AppFixture.cs`) must become provider-aware:
+**AppFixture** (`tests/Aporia.Tests.Integration/Fixtures/AppFixture.cs`) must become provider-aware:
 - Read `TestRepoOptions.Provider` and register the correct keyed connector + client setup.
 - When provider is `GitHub`: register `GitHubConnector`, skip `AddAdoClient()`.
 - When provider is `Ado`: register `AdoConnector`, skip `AddGitHubClient()` (current behavior).
@@ -517,7 +517,7 @@ interface ITestHelper
 {
     ReviewRequest BuildRequest(int prId, string branch);
     Task PrepareForRun(ReviewRequest req);           // ADO: clean threads. GitHub: no-op (edit-in-place handles it)
-    Task<List<PostedComment>> GetRevuComments(ReviewRequest req);  // ADO: threads. GitHub: latest review comments
+    Task<List<PostedComment>> GetAporiaComments(ReviewRequest req);  // ADO: threads. GitHub: latest review comments
     Task PrintComments(ReviewRequest req, ITestOutputHelper output);
 }
 ```
@@ -567,7 +567,7 @@ provider-agnostic). No changes needed here beyond ensuring AppFixture works with
 - The skill should read `TestRepo.Provider` from `appsettings.test.json` and branch accordingly.
 
 **`/test cleanup`** — ADO: runs `DeleteAllComments` test (current behavior). GitHub: no-op or
-dismiss all revu reviews via API. Less important for GitHub since edit-in-place keeps things clean.
+dismiss all aporia reviews via API. Less important for GitHub since edit-in-place keeps things clean.
 
 **`verify.py`** — no changes. It analyzes session JSON files which are provider-agnostic.
 
@@ -585,4 +585,4 @@ same expectations apply. Created by applying the ADO PR diff to the GitHub fork.
 **Still needed:**
 - Register the repo via `POST /manage/repos` with `provider: "github"`.
 - Configure webhook subscription pointing to the dev tunnel / deployed endpoint.
-- Add `.revu.json` config file to the repo (or test with defaults).
+- Add `.aporia.json` config file to the repo (or test with defaults).

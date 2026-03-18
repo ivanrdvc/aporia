@@ -46,13 +46,13 @@ before fetching full source.
 Code graph is enabled by default. To disable indexing and querying globally:
 
 ```
-Revu__EnableCodeGraph=false
+Aporia__EnableCodeGraph=false
 ```
 
 Or in `appsettings.json`:
 
 ```json
-{ "Revu": { "EnableCodeGraph": false } }
+{ "Aporia": { "EnableCodeGraph": false } }
 ```
 
 When disabled, `QueryCodeGraph` returns a fallback message directing the reviewer to use

@@ -36,16 +36,16 @@ From the self-review sessions (26-file, ~4000-line diff adding GitHub provider):
 
 ## Relevant Code / Files
 
-- Prompts: `Revu/Review/Prompts.cs` — reviewer instructions, exploration guidance, severity definitions
-- Strategy: `Revu/Review/CoreStrategy.cs` — reviewer agent setup, tool configuration
-- Project config: `Revu/ProjectConfig.cs` — repo-level rules from `.revu.json`
-- Session (Sonnet): `tests/Revu.Tests.Integration/bin/Debug/net10.0/sessions/run-20260315-162059/`
-- Session (Haiku): `tests/Revu.Tests.Integration/bin/Debug/net10.0/sessions/run-20260315-161529/`
+- Prompts: `Aporia/Review/Prompts.cs` — reviewer instructions, exploration guidance, severity definitions
+- Strategy: `Aporia/Review/CoreStrategy.cs` — reviewer agent setup, tool configuration
+- Project config: `Aporia/ProjectConfig.cs` — repo-level rules from `.aporia.json`
+- Session (Sonnet): `tests/Aporia.Tests.Integration/bin/Debug/net10.0/sessions/run-20260315-162059/`
+- Session (Haiku): `tests/Aporia.Tests.Integration/bin/Debug/net10.0/sessions/run-20260315-161529/`
 - Related problem: `notes/problems/2026-03-15-self-review-quality.md`
 
 ## Notes for Next Session
 
-- **#1 Project context** — how do we get design decisions into the review? Options: expand `.revu.json` with a `designDecisions` or `knownPatterns` section the author maintains; let `ProjectConfig` carry free-text context the prompt includes; use the skills system to encode project-specific knowledge. The tradeoff is maintenance burden vs. review accuracy.
+- **#1 Project context** — how do we get design decisions into the review? Options: expand `.aporia.json` with a `designDecisions` or `knownPatterns` section the author maintains; let `ProjectConfig` carry free-text context the prompt includes; use the skills system to encode project-specific knowledge. The tradeoff is maintenance burden vs. review accuracy.
 - **#2 Sibling verification** — the exploration guidance already tells the model to compare with sibling implementations. Sonnet ignored it on this run (0 tool calls). Is this a prompt strength issue, or does the model need a harder nudge — e.g. "before reporting a pattern violation, you MUST check at least one sibling implementation"? Would that just become the expensive verification gate again?
 - The prompt rewrite for #3 should land first — it's zero cost and may shift the baseline enough that #1 and #2 become clearer to evaluate.
 - Run with Opus to see if a stronger model naturally does #2 (checks siblings) without prompt changes. If Opus gets it right, the problem may be model capability for Sonnet/Haiku, not a systemic design issue.

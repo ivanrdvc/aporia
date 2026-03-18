@@ -1,6 +1,6 @@
-# Revu
+# Aporia
 
-[![CI](https://github.com/ivanrdvc/revu/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanrdvc/revu/actions/workflows/ci.yml)
+[![CI](https://github.com/ivanrdvc/aporia/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanrdvc/aporia/actions/workflows/ci.yml)
 
 AI code review for pull requests.
 
@@ -10,7 +10,7 @@ AI code review for pull requests.
 - **Committable suggestions** — one-click apply code suggestions from the review
 - **PR summaries** — per-file overview of what changed in the PR
 - **Incremental reviews** — only reviews new iterations, skips already-reviewed changes
-- **PR chat** — reply to a finding or mention `@revu` anywhere on the PR for a follow-up conversation
+- **PR chat** — reply to a finding or mention `@aporia` anywhere on the PR for a follow-up conversation
 - **Review skills** — on-demand domain knowledge (security, framework patterns, etc.) loaded by the reviewer when relevant
 
 ## Run locally
@@ -19,33 +19,33 @@ Prerequisites: [Azure Functions Core Tools](https://learn.microsoft.com/en-us/az
 [Docker](https://docs.docker.com/get-docker/) (optional, for OpenObserve).
 
 Copy the template and fill in your credentials and AI keys. GitHub supports both PAT and
-[GitHub App](docs/setup.md#github) auth (App recommended — comments post as `revu[bot]`):
+[GitHub App](docs/setup.md#github) auth (App recommended — comments post as `aporia[bot]`):
 
 ```bash
-cp Revu/local.settings.example.json Revu/local.settings.json
+cp Aporia/local.settings.example.json Aporia/local.settings.json
 ```
 
 Configure AI credentials in [.NET user secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets)
 (shared by all test projects):
 
 ```bash
-cd Revu
+cd Aporia
 dotnet user-secrets set "Ai:Anthropic:ApiKey" "sk-ant-..."
 ```
 
 Start the function host:
 
 ```bash
-cd Revu
+cd Aporia
 func start
 ```
 
 To receive real ADO/GitHub webhooks locally, create a persistent dev tunnel:
 
 ```bash
-devtunnel create revu --allow-anonymous
-devtunnel port create revu -p 7071
-devtunnel host revu
+devtunnel create aporia --allow-anonymous
+devtunnel port create aporia -p 7071
+devtunnel host aporia
 ```
 
 Then point your ADO service hooks at `{tunnel-url}/api/webhook/ado` (PR created/updated) and
@@ -65,14 +65,14 @@ Dashboard at http://localhost:5080 (see [docs/observability.md](docs/observabili
 
 ## Getting started
 
-Revu only reviews registered repositories. Unregistered repos are silently ignored. To enroll a
+Aporia only reviews registered repositories. Unregistered repos are silently ignored. To enroll a
 repo, register it via `POST /api/manage/repos` (requires a function key), then create service
-hooks for PR events. Optionally drop a `.revu.json` in the repo root to customize review behavior
+hooks for PR events. Optionally drop a `.aporia.json` in the repo root to customize review behavior
 (see [Configuration](#configuration)).
 
 ## Configuration
 
-Drop a `.revu.json` file in the root of your repository to customize review behavior. All fields
+Drop a `.aporia.json` file in the root of your repository to customize review behavior. All fields
 are optional; sensible defaults apply when omitted.
 
 ```jsonc
@@ -103,7 +103,7 @@ are optional; sensible defaults apply when omitted.
 
 ### Skills
 
-Revu ships with built-in review skills: domain-specific knowledge the reviewer loads on demand
+Aporia ships with built-in review skills: domain-specific knowledge the reviewer loads on demand
 when a PR touches a relevant area.
 
-Each skill is a `SKILL.md` file under `Revu/Skills/` containing domain-specific review criteria.
+Each skill is a `SKILL.md` file under `Aporia/Skills/` containing domain-specific review criteria.

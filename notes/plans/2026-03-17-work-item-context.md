@@ -79,7 +79,7 @@ Description: [cleaned description]
 **ADO API spike (validated against `ivanradovic/ivanrndvc-sc`, PR #1, PBI #13):**
 - `Microsoft.TeamFoundationServer.Client` (already referenced, v20.268.0-preview) includes
   `WorkItemTrackingHttpClient` — available via `VssConnection.GetClient<WorkItemTrackingHttpClient>()`
-  using the same auth pattern as `GitHttpClient` (`Revu/Git/AdoConnector.cs:32-40`)
+  using the same auth pattern as `GitHttpClient` (`Aporia/Git/AdoConnector.cs:32-40`)
 - PR work item refs: `GitHttpClient.GetPullRequestWorkItemRefsAsync(project, repoId, prId)` returns
   resource refs. Extract ID via `r.Url.Split('/').Last()`.
 - Work item details: `WorkItemTrackingHttpClient.GetWorkItemAsync(id)` returns all fields.
@@ -94,38 +94,38 @@ Description: [cleaned description]
   No need to expand relations or parse `System.LinkTypes.Hierarchy-Reverse`.
 
 **Existing context flow:**
-- `ReviewFunction` (`Revu/Functions/ReviewFunction.cs:39`) calls `git.GetPrContext(req)` which
+- `ReviewFunction` (`Aporia/Functions/ReviewFunction.cs:39`) calls `git.GetPrContext(req)` which
   returns `PrContext(Title, Description, CommitMessages)`
-- `CoreStrategy` (`Revu/Review/CoreStrategy.cs:76`) stores `PrContext` in `session.StateBag`
-- `PrContextProvider` (`Revu/Review/PrContextProvider.cs:17-35`) reads from StateBag, renders
+- `CoreStrategy` (`Aporia/Review/CoreStrategy.cs:76`) stores `PrContext` in `session.StateBag`
+- `PrContextProvider` (`Aporia/Review/PrContextProvider.cs:17-35`) reads from StateBag, renders
   `<pr_context>` XML block into reviewer instructions
-- `ProjectConfig` (`Revu/ProjectConfig.cs`) parsed from `.revu.json`, supports merge with defaults
+- `ProjectConfig` (`Aporia/ProjectConfig.cs`) parsed from `.aporia.json`, supports merge with defaults
 
 **Config pattern:**
-- `ReviewConfig` (`Revu/ProjectConfig.cs:69-73`) currently has `Strategy` and `MaxComments`
+- `ReviewConfig` (`Aporia/ProjectConfig.cs:69-73`) currently has `Strategy` and `MaxComments`
 - Merging in `ProjectConfig.Parse()` falls through to defaults for null values
 
 ## Implementation Steps
 
 1. **Add `WorkItemContext` model**
-   - File: `Revu/Models.cs`
+   - File: `Aporia/Models.cs`
    - Add `WorkItemContext` record (Type, Title, Description, AcceptanceCriteria, Parent)
    - Add optional `WorkItems` property to `PrContext`:
      `IReadOnlyList<WorkItemContext>? WorkItems = null`
 
 2. **Add `EnableWorkItems` to `ReviewConfig`**
-   - File: `Revu/ProjectConfig.cs`
+   - File: `Aporia/ProjectConfig.cs`
    - Add `bool? EnableWorkItems` to `ReviewConfig` (default `null`, merges to `false`)
    - Wire merge logic in `ProjectConfig.Parse()`
 
 3. **Update `IGitConnector.GetPrContext` signature**
-   - File: `Revu/Git/IGitConnector.cs`
+   - File: `Aporia/Git/IGitConnector.cs`
    - Add `ProjectConfig` parameter: `GetPrContext(ReviewRequest req, ProjectConfig config)`
    - Update `GitHubConnector.GetPrContext` to accept and ignore the config parameter
    - Update all callers (`ReviewFunction`, `ChatFunction`, tests)
 
 4. **Implement work item fetch in `AdoConnector.GetPrContext`**
-   - File: `Revu/Git/AdoConnector.cs`
+   - File: `Aporia/Git/AdoConnector.cs`
    - Add `WorkItemTrackingHttpClient` to the cached client dictionary (same pattern as
      `_gitClients`)
    - When `config.Review.EnableWorkItems == true`:
@@ -139,18 +139,18 @@ Description: [cleaned description]
    - Return `PrContext` with populated `WorkItems`
 
 5. **Render in `PrContextProvider`**
-   - File: `Revu/Review/PrContextProvider.cs`
+   - File: `Aporia/Review/PrContextProvider.cs`
    - After the `<pr_context>` block, if `pr.WorkItems` is not null/empty, render `<work_items>`
      block with type, title, description, acceptance criteria for each item + parent
 
 6. **Unit tests**
-   - File: `tests/Revu.Tests.Unit/` (new or existing test files)
+   - File: `tests/Aporia.Tests.Unit/` (new or existing test files)
    - Test HTML stripping and field capping
    - Test `PrContextProvider` renders work items correctly
    - Test `ProjectConfig.Parse` merges `EnableWorkItems`
 
 7. **Integration test against ADO org**
-   - File: `tests/Revu.Tests.Integration/` (check existing test patterns — PAT in dotnet secrets)
+   - File: `tests/Aporia.Tests.Integration/` (check existing test patterns — PAT in dotnet secrets)
    - Test `AdoConnector.GetPrContext` with `EnableWorkItems = true` against a real PR with
      linked PBIs
    - Verify parent Feature resolution
@@ -164,7 +164,7 @@ Description: [cleaned description]
 
 ## Notes for Implementation
 
-- The `Microsoft.TeamFoundationServer.Client` NuGet (already in `Revu.csproj`) includes
+- The `Microsoft.TeamFoundationServer.Client` NuGet (already in `Aporia.csproj`) includes
   `Microsoft.TeamFoundation.WorkItemTracking.WebApi.WorkItemTrackingHttpClient` — no new package
   needed.
 - `WorkItemTrackingHttpClient` is obtained via `VssConnection.GetClient<WorkItemTrackingHttpClient>()`

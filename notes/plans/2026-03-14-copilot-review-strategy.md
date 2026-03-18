@@ -8,13 +8,13 @@ tags: [copilot, review-strategy, github-copilot, maf]
 
 ## Problem Statement
 
-Revu has a strategy abstraction (`IReviewStrategy`) with `CoreStrategy` as the only implementation.
+Aporia has a strategy abstraction (`IReviewStrategy`) with `CoreStrategy` as the only implementation.
 The constant `ReviewStrategy.Copilot = "copilot"` is already declared but has no backing class.
 GitHub Copilot is now available as a programmable agent via the `GitHub.Copilot.SDK` NuGet package,
 and the Microsoft Agent Framework (MAF) provides a ready-made adapter
 (`Microsoft.Agents.AI.GitHub.Copilot`) that bridges the Copilot SDK to the `AIAgent` interface
-Revu already uses. Adding a `CopilotStrategy` would let repos opt into Copilot-powered reviews
-via `.revu.json` config (`"strategy": "copilot"`).
+Aporia already uses. Adding a `CopilotStrategy` would let repos opt into Copilot-powered reviews
+via `.aporia.json` config (`"strategy": "copilot"`).
 
 ## Decision Drivers
 
@@ -37,8 +37,8 @@ via `.revu.json` config (`"strategy": "copilot"`).
 
 ## Solution
 
-Add `CopilotStrategy : IReviewStrategy` in `Revu/Review/CopilotStrategy.cs`. It clones the repo
-via shared `RepoClone` infrastructure (`Revu/Git/RepoClone.cs`), creates a `CopilotClient`,
+Add `CopilotStrategy : IReviewStrategy` in `Aporia/Review/CopilotStrategy.cs`. It clones the repo
+via shared `RepoClone` infrastructure (`Aporia/Git/RepoClone.cs`), creates a `CopilotClient`,
 wraps it as an `AIAgent` via MAF's `AsAIAgent()` extension with `WorkingDirectory` pointing at
 the clone, sends the review prompt, and parses `ReviewResult` from the response text.
 
@@ -96,7 +96,7 @@ with the `ReviewResult` schema inlined. Parse from the response text. Fragile bu
 ### MAF GitHub Copilot Package
 
 - **NuGet:** `Microsoft.Agents.AI.GitHub.Copilot` (wraps `GitHub.Copilot.SDK` v0.1.29)
-- **Target:** .NET 8.0+ (Revu is .NET 10, compatible)
+- **Target:** .NET 8.0+ (Aporia is .NET 10, compatible)
 - **Key class:** `GitHubCopilotAgent : AIAgent` — sealed, handles session lifecycle, streaming,
   event conversion, tool dispatch via `SessionConfig.Tools`
 - **Extension:** `CopilotClient.AsAIAgent()` — bridges SDK client to MAF agent interface
@@ -122,7 +122,7 @@ with the `ReviewResult` schema inlined. Parse from the response text. Fragile bu
   `SessionIdleEvent`, `SessionErrorEvent` via `copilotSession.On()`.
 - **Auth:** Requires `gh auth login` with Copilot entitlement on the host machine.
 
-### Existing Strategy Pattern (`Revu/Review/`)
+### Existing Strategy Pattern (`Aporia/Review/`)
 
 - `IReviewStrategy.Review()` signature: `(ReviewRequest, Diff, ProjectConfig, PrContext,
   CodeGraphQuery?, CancellationToken)` → `Task<ReviewResult>`
@@ -145,7 +145,7 @@ exchange only.
 ### Phase 1 — Ready now (no blockers)
 
 1. **Add `RepoClone` shared infrastructure**
-   - Files: `Revu/Git/RepoClone.cs` (new)
+   - Files: `Aporia/Git/RepoClone.cs` (new)
    - `IAsyncDisposable` class — shallow-clones a repo, exposes `Path`, deletes on dispose.
    - Caller-agnostic: takes `cloneUrl`, `branch`, `token`. No strategy-specific logic.
    - Security: `GIT_ASKPASS`-based auth, symlinks off, LFS off, filters off, no submodules.
@@ -153,12 +153,12 @@ exchange only.
    - Self-contained — no external NuGet dependencies beyond `git` CLI.
 
 2. **Add NuGet references**
-   - Files: `Revu/Revu.csproj`
+   - Files: `Aporia/Aporia.csproj`
    - Add `GitHub.Copilot.SDK` (pin v0.1.29) and `Microsoft.Agents.AI.GitHub.Copilot`.
    - Verify version compatibility with .NET 10.
 
 3. **Create CopilotStrategy skeleton + DI registration**
-   - Files: `Revu/Review/CopilotStrategy.cs` (new), `Revu/Program.cs`
+   - Files: `Aporia/Review/CopilotStrategy.cs` (new), `Aporia/Program.cs`
    - Implement `IReviewStrategy`. Constructor takes `IOptions<GitHubOptions>`,
      `ILogger<CopilotStrategy>`.
    - In `Review()`: clone via `RepoClone.CreateAsync()`, create `CopilotClient` with
@@ -213,7 +213,7 @@ exchange only.
   `PrContextProvider` via `AIContextProviders`. The Copilot agent doesn't support
   `ChatClientAgentOptions` / `AIContextProviders` — skills would need to be loaded manually
   and injected into the system message or as tool results.
-- [ ] **Code graph access.** Copilot's native tools don't know about Revu's code graph index.
+- [ ] **Code graph access.** Copilot's native tools don't know about Aporia's code graph index.
   Options: inject `QueryCodeGraph` as an extra `SessionConfig.Tools` entry, or skip it (Copilot
   can grep/read files directly). Need to verify mixed tool sources work if injecting.
 - [ ] **Copilot ExcludedTools / AvailableTools names.** Need to enumerate the exact built-in
@@ -224,12 +224,12 @@ exchange only.
 ## Local Clone — Shared Infrastructure
 
 Both `CopilotStrategy` and `ClaudeCodeStrategy` (future) need a local clone — they operate on
-the filesystem, not via REST APIs. The clone logic lives in `Revu/Git/RepoClone.cs` as shared
+the filesystem, not via REST APIs. The clone logic lives in `Aporia/Git/RepoClone.cs` as shared
 infrastructure, not inside any individual strategy.
 
 `CoreStrategy` doesn't need this — it uses `ReviewerTools` which call `IGitConnector` REST APIs.
 
-### RepoClone — `Revu/Git/RepoClone.cs`
+### RepoClone — `Aporia/Git/RepoClone.cs`
 
 `IAsyncDisposable` wrapper. Clones on creation, deletes on dispose. Strategies get a `Path`
 and set it as their agent's working directory.
@@ -250,12 +250,12 @@ public sealed class RepoClone : IAsyncDisposable
         string cloneUrl, string branch, string token, CancellationToken ct = default)
     {
         var tempDir = System.IO.Path.Combine(
-            System.IO.Path.GetTempPath(), $"revu_{Guid.NewGuid():N}");
+            System.IO.Path.GetTempPath(), $"aporia_{Guid.NewGuid():N}");
 
         // GIT_ASKPASS: token never appears in process arguments or /proc/PID/cmdline.
         // The script prints the token to stdout when git calls it for credentials.
         var askPassScript = System.IO.Path.Combine(
-            System.IO.Path.GetTempPath(), $"revu_askpass_{Guid.NewGuid():N}.sh");
+            System.IO.Path.GetTempPath(), $"aporia_askpass_{Guid.NewGuid():N}.sh");
         await File.WriteAllTextAsync(askPassScript, $"#!/bin/sh\necho '{token}'", ct);
         File.SetUnixFileMode(askPassScript, UnixFileMode.UserRead | UnixFileMode.UserExecute);
 
@@ -400,7 +400,7 @@ A cloned repo is untrusted input. The flags mitigate known git attack vectors:
 crashes mid-review, the temp directory is orphaned. Mitigations:
 
 - Container filesystem is ephemeral — orphans cleaned up on container recycle.
-- Optional startup sweep: scan `revu_*` dirs in temp, delete any older than 1 hour.
+- Optional startup sweep: scan `aporia_*` dirs in temp, delete any older than 1 hour.
 - At ~15MB per shallow clone, even several orphans are negligible.
 
 Concurrency: each review gets a GUID-named temp directory. No conflicts.

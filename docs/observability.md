@@ -1,6 +1,6 @@
 # Observability
 
-Revu uses OpenTelemetry for tracing, metrics, and logs. Locally, data flows to OpenObserve via OTLP. In production, data exports to Azure Application Insights via the Azure Monitor exporter. Both can run simultaneously.
+Aporia uses OpenTelemetry for tracing, metrics, and logs. Locally, data flows to OpenObserve via OTLP. In production, data exports to Azure Application Insights via the Azure Monitor exporter. Both can run simultaneously.
 
 ## Automatic telemetry (zero code)
 
@@ -20,15 +20,15 @@ All tagged with `project` + `repository` for per-repo breakdowns.
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `revu.reviews.processed` | counter | PRs reviewed |
-| `revu.review.duration` | histogram (s) | End-to-end review time |
-| `revu.diff.files` | histogram | Files in the diff |
-| `revu.diff.size` | histogram (chars) | Total diff size |
-| `revu.findings.generated` | counter | Findings from LLM before filtering |
-| `revu.findings.posted` | counter | Findings posted after capping |
-| `revu.agent.explorations` | counter | Explorer agent dispatches |
-| `revu.review.parse_failures` | counter | Reviews where structured output failed to parse |
-| `revu.agent.exploration_failures` | counter | Explorer invocations that failed or returned invalid output |
+| `aporia.reviews.processed` | counter | PRs reviewed |
+| `aporia.review.duration` | histogram (s) | End-to-end review time |
+| `aporia.diff.files` | histogram | Files in the diff |
+| `aporia.diff.size` | histogram (chars) | Total diff size |
+| `aporia.findings.generated` | counter | Findings from LLM before filtering |
+| `aporia.findings.posted` | counter | Findings posted after capping |
+| `aporia.agent.explorations` | counter | Explorer agent dispatches |
+| `aporia.review.parse_failures` | counter | Reviews where structured output failed to parse |
+| `aporia.agent.exploration_failures` | counter | Explorer invocations that failed or returned invalid output |
 
 ## Token summary processor
 
@@ -106,7 +106,7 @@ Replace `TRACE_ID` with the `operation_Id` from a trace.
 ### PRs per repo (daily)
 
     customMetrics
-    | where name == "revu.reviews.processed"
+    | where name == "aporia.reviews.processed"
     | extend project = tostring(customDimensions["project"])
     | extend repository = tostring(customDimensions["repository"])
     | summarize reviews=sum(value) by project, repository, bin(timestamp, 1d)
@@ -114,16 +114,16 @@ Replace `TRACE_ID` with the `operation_Id` from a trace.
 ### Waste ratio per repo
 
     customMetrics
-    | where name in ("revu.findings.generated", "revu.findings.posted")
+    | where name in ("aporia.findings.generated", "aporia.findings.posted")
     | extend repository = tostring(customDimensions["repository"])
-    | summarize generated=sumif(value, name=="revu.findings.generated"),
-                posted=sumif(value, name=="revu.findings.posted") by repository
+    | summarize generated=sumif(value, name=="aporia.findings.generated"),
+                posted=sumif(value, name=="aporia.findings.posted") by repository
     | extend waste_pct = round((generated - posted) / generated * 100, 1)
 
 ### Slowest reviews
 
     customMetrics
-    | where name == "revu.review.duration"
+    | where name == "aporia.review.duration"
     | extend project = tostring(customDimensions["project"])
     | extend repository = tostring(customDimensions["repository"])
     | top 20 by value desc

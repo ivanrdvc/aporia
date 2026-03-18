@@ -25,7 +25,7 @@ OTEL together.
 
 ## Solution
 
-Subclass `CosmosChatHistoryProvider` to create `RevuChatHistoryProvider`. Override
+Subclass `CosmosChatHistoryProvider` to create `AporiaChatHistoryProvider`. Override
 `StoreChatHistoryAsync`: call `base` (MAF stores messages as individual documents), then write one
 lightweight **metadata document** to the same `"sessions"` container. The metadata document
 contains agent name, instructions, tools, traceId, strategy, version, and a timestamp — but NOT
@@ -37,7 +37,7 @@ sessions, and OTEL.
 
 ```
 CosmosChatHistoryProvider (MAF — stores individual messages)
-  └── RevuChatHistoryProvider : CosmosChatHistoryProvider
+  └── AporiaChatHistoryProvider : CosmosChatHistoryProvider
         override StoreChatHistoryAsync:
           1. await base.StoreChatHistoryAsync(...)   // MAF writes messages
           2. Write metadata-only envelope document   // we add context
@@ -82,7 +82,7 @@ Class is **not sealed** — subclassing is the intended extension pattern (see
 - Not sealed — subclassing viable
 
 ### Getting envelope data from InvokedContext
-**Source:** `tests/Revu.Tests.Integration/Fixtures/FileSessionProvider.cs`
+**Source:** `tests/Aporia.Tests.Integration/Fixtures/FileSessionProvider.cs`
 
 `FileSessionProvider` already extracts everything we need:
 - **Agent name:** `context.Agent is ChatClientAgent ca ? ca.Name : null`
@@ -97,7 +97,7 @@ Cast to `ChatClientAgent` for name/instructions, service discovery for `ChatOpti
 - `ReviewStore` persists `ReviewEvent` with `conversationId` but no `traceId`
 
 ### OTEL export config
-**File:** `Revu/Infra/Telemetry/TelemetryExtensions.cs`
+**File:** `Aporia/Infra/Telemetry/TelemetryExtensions.cs`
 
 Already supports dual export — `UseOtlpExporter()` and `UseAzureMonitorExporter()` can run
 simultaneously. Controlled by env vars `OTEL_EXPORTER_OTLP_ENDPOINT` and
@@ -105,8 +105,8 @@ simultaneously. Controlled by env vars `OTEL_EXPORTER_OTLP_ENDPOINT` and
 
 ## Implementation Steps
 
-1. **Create `RevuChatHistoryProvider`**
-   - Files: `Revu/Infra/AI/RevuChatHistoryProvider.cs`
+1. **Create `AporiaChatHistoryProvider`**
+   - Files: `Aporia/Infra/AI/AporiaChatHistoryProvider.cs`
    - Subclass `CosmosChatHistoryProvider`
    - Override `StoreChatHistoryAsync`:
      - Call `base.StoreChatHistoryAsync(...)` (MAF writes messages)
@@ -121,13 +121,13 @@ simultaneously. Controlled by env vars `OTEL_EXPORTER_OTLP_ENDPOINT` and
    - Strategy: passed via session `StateBag` (set in `CoreStrategy` before agent runs)
    - Version: `Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion`
 
-2. **Wire `RevuChatHistoryProvider` in DI**
-   - Files: `Revu/Infra/ServiceCollectionExtensions.cs`
-   - Replace `CosmosChatHistoryProvider` registration with `RevuChatHistoryProvider`
+2. **Wire `AporiaChatHistoryProvider` in DI**
+   - Files: `Aporia/Infra/ServiceCollectionExtensions.cs`
+   - Replace `CosmosChatHistoryProvider` registration with `AporiaChatHistoryProvider`
    - Needs the `CosmosClient` + container name (already available from `CosmosOptions`)
 
 3. **Add `traceId`, `strategy`, `version` to `ReviewEvent`**
-   - Files: `Revu/Infra/Cosmos/ReviewStore.cs`, `Revu/Functions/ReviewFunction.cs`
+   - Files: `Aporia/Infra/Cosmos/ReviewStore.cs`, `Aporia/Functions/ReviewFunction.cs`
    - Add `TraceId`, `Strategy`, `Version` properties to `ReviewEvent`
    - Capture `Activity.Current?.TraceId.ToString()` in `ReviewFunction.Run()`
    - Strategy from the strategy key used by `Reviewer`
@@ -172,5 +172,5 @@ simultaneously. Controlled by env vars `OTEL_EXPORTER_OTLP_ENDPOINT` and
 - [ ] Should `FileSessionProvider` also write envelope metadata (traceId, strategy, version) to
   local files for parity, or keep it as-is?
 - [ ] Container access from subclass — `CosmosChatHistoryProvider`'s container ref is private.
-  Pass `CosmosClient` + container config separately to `RevuChatHistoryProvider`, or use
+  Pass `CosmosClient` + container config separately to `AporiaChatHistoryProvider`, or use
   `CosmosDb` helper.

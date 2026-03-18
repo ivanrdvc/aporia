@@ -25,7 +25,7 @@ jobs:
           cache-dependency-path: '**/*.csproj'
 
       - name: Publish
-        run: dotnet publish Revu/Revu.csproj -c Release -o ./publish
+        run: dotnet publish Aporia/Aporia.csproj -c Release -o ./publish
 
       - uses: azure/login@v2
         with:
@@ -39,12 +39,12 @@ jobs:
           scope: resourceGroup
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          resource-group-name: rg-revu-prod
+          resource-group-name: rg-aporia-prod
           template-file: infra/main.bicep
           parameters: '{"aiOpenAiKey": "${{ secrets.AI_OPENAI_KEY }}", "aiAnthropicKey": "${{ secrets.AI_ANTHROPIC_KEY }}"}'
 
       - name: Deploy function app
         uses: azure/functions-action@v1
         with:
-          app-name: func-revu
+          app-name: func-aporia
           package: ./publish

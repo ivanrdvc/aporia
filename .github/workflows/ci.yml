@@ -23,7 +23,7 @@ jobs:
 
       - run: dotnet build --no-restore
 
-      - run: dotnet test tests/Revu.Tests.Unit/Revu.Tests.Unit.csproj --no-build --collect:"XPlat Code Coverage"
+      - run: dotnet test tests/Aporia.Tests.Unit/Aporia.Tests.Unit.csproj --no-build --collect:"XPlat Code Coverage"
 
       - name: Upload coverage report
         if: always()

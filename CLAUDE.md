@@ -30,7 +30,7 @@ comments, and exposes codebase exploration tools (`GetFile`, `SearchCode`, `List
 transport — no review logic. Each provider (AzureDevOps, GitHub) implements this. `AdoWebhook.cs`
 lives here — it's ADO transport detail, not a shared model.
 
-**ProjectConfig** (root `ProjectConfig.cs`) — repo-level rules from `.revu.json`. Owns its own
+**ProjectConfig** (root `ProjectConfig.cs`) — repo-level rules from `.aporia.json`. Owns its own
 parsing and merging with defaults. Provider fetches raw file, calls `ProjectConfig.Parse()`.
 
 **Cosmos stores** (`Infra/Cosmos/`) — thin Cosmos-backed persistence. `RepoStore` gates the webhook
@@ -58,7 +58,7 @@ ProjectConfig.
 **Skills** (`Skills/`) — domain-specific review knowledge the reviewer loads on demand via MAF's
 `FileAgentSkillsProvider`. Each skill is a `SKILL.md` following the Agent Skills open standard.
 The provider advertises available skills in the reviewer's instructions and exposes `load_skill` /
-`read_skill_resource` tools. Skills are reviewer capabilities that ship with Revu, not project
+`read_skill_resource` tools. Skills are reviewer capabilities that ship with Aporia, not project
 config.
 
 ## Design Principles
