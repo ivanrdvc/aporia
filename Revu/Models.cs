@@ -15,7 +15,8 @@ public record ReviewRequest(
     int PullRequestId,
     string SourceBranch,
     string TargetBranch,
-    string Organization = ""
+    string Organization = "",
+    long? InstallationId = null
 )
 {
     public string ConversationId => $"pr-{RepositoryId}-{PullRequestId}";

@@ -59,9 +59,8 @@ public class AppFixture : IAsyncLifetime
         switch (provider)
         {
             case GitProvider.Ado:
-                builder.Services.AddOptions<AdoOptions>().BindConfiguration(AdoOptions.SectionName).ValidateDataAnnotations();
-                builder.Services.AddSingleton<IGitConnector, AdoConnector>();
-                builder.Services.AddKeyedSingleton<IGitConnector>(GitProvider.Ado, (sp, _) => sp.GetRequiredService<IGitConnector>());
+                builder.Services.AddAdo();
+                builder.Services.AddSingleton<IGitConnector>(sp => sp.GetRequiredKeyedService<IGitConnector>(GitProvider.Ado));
                 builder.Services.AddSingleton<ITestHelper>(sp =>
                 {
                     var testOpts = sp.GetRequiredService<IOptions<TestRepoOptions>>().Value;
@@ -78,9 +77,8 @@ public class AppFixture : IAsyncLifetime
                 break;
 
             case GitProvider.GitHub:
-                builder.Services.AddOptions<GitHubOptions>().BindConfiguration(GitHubOptions.SectionName).ValidateDataAnnotations();
-                builder.Services.AddSingleton<IGitConnector, GitHubConnector>();
-                builder.Services.AddKeyedSingleton<IGitConnector>(GitProvider.GitHub, (sp, _) => sp.GetRequiredService<IGitConnector>());
+                builder.Services.AddGitHub();
+                builder.Services.AddScoped<IGitConnector>(sp => sp.GetRequiredKeyedService<IGitConnector>(GitProvider.GitHub));
                 builder.Services.AddSingleton<ITestHelper, GitHubTestHelper>();
                 break;
         }

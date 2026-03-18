@@ -113,4 +113,6 @@ public class TestRepoOptions
     public GitProvider Provider { get; init; } = GitProvider.Ado;
 
     public string? Organization { get; init; }
+
+    public long? InstallationId { get; init; }
 }

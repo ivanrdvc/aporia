@@ -5,7 +5,8 @@ namespace Revu.Git;
 public record GitHubWebhook(
     string Action,
     [property: JsonPropertyName("pull_request")] GitHubPullRequest PullRequest,
-    GitHubRepository Repository)
+    GitHubRepository Repository,
+    GitHubInstallation? Installation = null)
 {
     public ReviewRequest? ToRequest() =>
         Action is ("opened" or "synchronize" or "reopened")
@@ -17,9 +18,12 @@ public record GitHubWebhook(
                 RepositoryName: Repository.Name,
                 PullRequestId: PullRequest.Number,
                 SourceBranch: PullRequest.Head.Ref,
-                TargetBranch: PullRequest.Base.Ref)
+                TargetBranch: PullRequest.Base.Ref,
+                InstallationId: Installation?.Id)
             : null;
 }
+
+public record GitHubInstallation(long Id);
 
 public record GitHubPullRequest(
     int Number,

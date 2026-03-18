@@ -240,6 +240,7 @@ public class AdoConnectorTests
     {
         var connector = new AdoConnector(
             store,
+            Substitute.For<IHttpClientFactory>(),
             Options.Create(new AdoOptions
             {
                 Organizations = new Dictionary<string, AdoOrgConfig>

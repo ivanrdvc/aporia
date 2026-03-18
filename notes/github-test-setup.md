@@ -31,8 +31,14 @@ the `/test` skill to be provider-aware.
 Both `Revu.csproj` and `Revu.Tests.Integration.csproj` user-secrets:
 
 ```
-GitHub:Organizations:ivanrdvc:Owner = ivanrdvc
-GitHub:Organizations:ivanrdvc:Token = <gh-token>
+GitHub:Token = <gh-pat>
+```
+
+For GitHub App auth (used in production, optional for tests):
+
+```
+GitHub:AppId = <app-id>
+GitHub:PrivateKey = <pem-contents>
 ```
 
 ### 5. Config switching

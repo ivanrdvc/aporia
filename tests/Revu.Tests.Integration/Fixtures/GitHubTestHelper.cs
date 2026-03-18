@@ -18,8 +18,8 @@ internal class GitHubTestHelper : ITestHelper, IDisposable
     public GitHubTestHelper(IOptions<TestRepoOptions> options, IOptions<GitHubOptions> ghOptions)
     {
         _options = options.Value;
-        var org = _options.Organization ?? ghOptions.Value.Organizations.Keys.First();
-        var token = ghOptions.Value.Organizations[org].Token;
+        var token = ghOptions.Value.Token
+            ?? throw new InvalidOperationException("GitHub__Token must be set for integration tests.");
 
         _client = new HttpClient { BaseAddress = new Uri("https://api.github.com/") };
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -30,7 +30,8 @@ internal class GitHubTestHelper : ITestHelper, IDisposable
 
     public ReviewRequest BuildRequest(int prId, string sourceBranch, string targetBranch = "refs/heads/main") =>
         new(_options.Provider, _options.Project, _options.RepositoryId, _options.RepositoryName,
-            prId, sourceBranch, targetBranch, _options.Organization ?? "");
+            prId, sourceBranch, targetBranch, _options.Organization ?? "",
+            InstallationId: _options.InstallationId);
 
     public async Task<int> GetRevuCommentCount(ReviewRequest req)
     {
