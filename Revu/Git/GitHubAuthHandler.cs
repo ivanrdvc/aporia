@@ -59,7 +59,7 @@ public class GitHubAuthHandler(
         using var request = new HttpRequestMessage(HttpMethod.Post, $"app/installations/{installationId}/access_tokens");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
 
-        var response = await client.SendAsync(request);
+        using var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<InstallationTokenResponse>();

@@ -16,7 +16,7 @@ public class GitHubOptions : IValidatableObject
     public long? AppId { get; init; }
     public string? PrivateKey { get; init; }
 
-    public bool UseApp => AppId is not null && PrivateKey is not null;
+    public bool UseApp => AppId is not null && !string.IsNullOrWhiteSpace(PrivateKey);
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

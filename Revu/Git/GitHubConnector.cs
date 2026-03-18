@@ -42,7 +42,7 @@ public partial class GitHubConnector(
 
         try
         {
-            var response = await SendAsync(req, HttpMethod.Get,
+            using var response = await SendAsync(req, HttpMethod.Get,
                 $"repos/{owner}/{repo}/contents/.revu.json?ref={branch}");
             if (!response.IsSuccessStatusCode)
                 return ProjectConfig.Default;
@@ -91,7 +91,7 @@ public partial class GitHubConnector(
         {
             try
             {
-                var compareResponse = await SendAsync(req, HttpMethod.Get,
+                using var compareResponse = await SendAsync(req, HttpMethod.Get,
                     $"repos/{owner}/{repo}/compare/{lastCursor}...{headSha}");
 
                 if (compareResponse.IsSuccessStatusCode)
@@ -261,7 +261,7 @@ public partial class GitHubConnector(
                 if (headSha is not null)
                     payload["commit_id"] = headSha;
 
-                var response = await SendAsync(req, HttpMethod.Post,
+                using var response = await SendAsync(req, HttpMethod.Post,
                     $"repos/{owner}/{repo}/pulls/{prNumber}/reviews", payload);
 
                 if (response.StatusCode == HttpStatusCode.UnprocessableEntity && batch.Length > 0)
@@ -306,7 +306,7 @@ public partial class GitHubConnector(
     {
         var (owner, repo) = ParseRepoId(req.RepositoryId);
 
-        var response = await SendAsync(req, HttpMethod.Get,
+        using var response = await SendAsync(req, HttpMethod.Get,
             $"search/code?q={Uri.EscapeDataString(query)}+repo:{owner}/{repo}");
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
@@ -401,7 +401,7 @@ public partial class GitHubConnector(
     {
         try
         {
-            var response = await SendAsync(req, HttpMethod.Get,
+            using var response = await SendAsync(req, HttpMethod.Get,
                 $"repos/{owner}/{repo}/contents/{path.TrimStart('/')}?ref={@ref}");
 
             if (!response.IsSuccessStatusCode)
@@ -464,16 +464,16 @@ public partial class GitHubConnector(
         {
             if (comment.Body?.Contains(RevuSummaryMarker) == true)
             {
-                await SendAsync(req, HttpMethod.Patch,
+                using var _ = await SendAsync(req, HttpMethod.Patch,
                     $"repos/{owner}/{repo}/issues/comments/{comment.Id}",
                     new { body });
                 return;
             }
         }
 
-        await SendAsync(req, HttpMethod.Post,
+        (await SendAsync(req, HttpMethod.Post,
             $"repos/{owner}/{repo}/issues/{prNumber}/comments",
-            new { body });
+            new { body })).Dispose();
     }
 
     private async IAsyncEnumerable<T> Paginate<T>(ReviewRequest req, string url, int perPage = 100)
@@ -483,7 +483,7 @@ public partial class GitHubConnector(
         while (true)
         {
             var separator = url.Contains('?') ? '&' : '?';
-            var response = await SendAsync(req, HttpMethod.Get,
+            using var response = await SendAsync(req, HttpMethod.Get,
                 $"{url}{separator}per_page={perPage}&page={page}");
 
             if (!response.IsSuccessStatusCode) yield break;
