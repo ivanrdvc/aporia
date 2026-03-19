@@ -25,9 +25,7 @@ public class AdoConnector(
 {
     private const string AporiaVersion = "aporia:version";
     private const string AporiaFingerprint = "aporia:fingerprint";
-    private static string AporiaReviewMarker => ChatRequest.ReviewMarker;
     private const int MaxChangeEntries = 5000;
-
     internal const string SearchClientName = "ado-search";
 
     internal readonly ConcurrentDictionary<string, GitHttpClient> _gitClients = [];
@@ -223,7 +221,7 @@ public class AdoConnector(
 
             var thread = new GitPullRequestCommentThread
             {
-                Comments = [new Comment { Content = $"{AporiaReviewMarker}\n{FormatComment(finding)}", CommentType = CommentType.Text }],
+                Comments = [new Comment { Content = $"{ChatRequest.ReviewMarker}\n{FormatComment(finding)}", CommentType = CommentType.Text }],
                 Status = CommentThreadStatus.Active,
                 Properties = new PropertiesCollection
                 {
@@ -249,7 +247,7 @@ public class AdoConnector(
         {
             var summaryThread = new GitPullRequestCommentThread
             {
-                Comments = [new Comment { Content = $"{AporiaReviewMarker}\n{result.Summary}", CommentType = CommentType.Text }],
+                Comments = [new Comment { Content = $"{ChatRequest.ReviewMarker}\n{result.Summary}", CommentType = CommentType.Text }],
                 Properties = new PropertiesCollection { { AporiaVersion, "1" } },
                 Status = CommentThreadStatus.Closed
             };
@@ -366,59 +364,6 @@ public class AdoConnector(
         }
     }
 
-    private async Task<IReadOnlyList<WorkItemContext>?> FetchWorkItems(ReviewRequest req)
-    {
-        try
-        {
-            var git = GetGitClient(req.Organization);
-            var wit = GetWitClient(req.Organization);
-
-            var refs = await git.GetPullRequestWorkItemRefsAsync(req.Project, req.RepositoryId, req.PullRequestId);
-            if (refs.Count == 0)
-                return null;
-
-            var ids = refs
-                .Select(r => int.TryParse(r.Url.Split('/').Last(), out var id) ? id : (int?)null)
-                .Where(id => id is not null)
-                .Select(id => id!.Value)
-                .Distinct()
-                .ToList();
-
-            if (ids.Count == 0)
-                return null;
-
-            var workItems = await wit.GetWorkItemsAsync(ids, fields: AdoWorkItemMapper.Fields);
-
-            // Collect distinct parent IDs and batch-fetch them
-            var parentIds = workItems
-                .Where(wi => wi.Fields is not null)
-                .Select(AdoWorkItemMapper.GetParentId)
-                .Where(id => id is not null)
-                .Select(id => id!.Value)
-                .Distinct()
-                .ToList();
-
-            var parentMap = new Dictionary<int, WorkItemContext>();
-            if (parentIds.Count > 0)
-            {
-                var parentWorkItems = await wit.GetWorkItemsAsync(parentIds, fields: AdoWorkItemMapper.Fields);
-                foreach (var pwi in parentWorkItems)
-                {
-                    if (pwi.Id is not null && pwi.Fields is not null)
-                        parentMap[pwi.Id.Value] = AdoWorkItemMapper.ToContext(pwi);
-                }
-            }
-
-            var items = AdoWorkItemMapper.MapWithParents(workItems, parentMap);
-            return items.Count > 0 ? items : null;
-        }
-        catch (VssServiceException ex)
-        {
-            logger.LogWarning(ex, "Failed to fetch work items for PR #{PrId}", req.PullRequestId);
-            return null;
-        }
-    }
-
     public async Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
     {
         var git = GetGitClient(req.Organization);
@@ -472,6 +417,70 @@ public class AdoConnector(
         await git.CreateCommentAsync(comment, req.Project, req.RepositoryId, req.PullRequestId, threadId);
     }
 
+    public Task<CloneCredentials> GetCloneCredentials(ReviewRequest req)
+    {
+        var config = adoOptions.Value.Organizations.Values
+            .FirstOrDefault(o => o.Organization == req.Organization)
+            ?? throw new InvalidOperationException($"No ADO configuration found for organization '{req.Organization}'.");
+
+        return Task.FromResult(new CloneCredentials(
+            $"https://dev.azure.com/{req.Organization}/{req.Project}/_git/{req.RepositoryName}",
+            config.PersonalAccessToken));
+    }
+
+    private async Task<IReadOnlyList<WorkItemContext>?> FetchWorkItems(ReviewRequest req)
+    {
+        try
+        {
+            var git = GetGitClient(req.Organization);
+            var wit = GetWitClient(req.Organization);
+
+            var refs = await git.GetPullRequestWorkItemRefsAsync(req.Project, req.RepositoryId, req.PullRequestId);
+            if (refs.Count == 0)
+                return null;
+
+            var ids = refs
+                .Select(r => int.TryParse(r.Url.Split('/').Last(), out var id) ? id : (int?)null)
+                .Where(id => id is not null)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0)
+                return null;
+
+            var workItems = await wit.GetWorkItemsAsync(ids, fields: AdoWorkItemMapper.Fields);
+
+            // Collect distinct parent IDs and batch-fetch them
+            var parentIds = workItems
+                .Where(wi => wi.Fields is not null)
+                .Select(AdoWorkItemMapper.GetParentId)
+                .Where(id => id is not null)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+
+            var parentMap = new Dictionary<int, WorkItemContext>();
+            if (parentIds.Count > 0)
+            {
+                var parentWorkItems = await wit.GetWorkItemsAsync(parentIds, fields: AdoWorkItemMapper.Fields);
+                foreach (var pwi in parentWorkItems)
+                {
+                    if (pwi.Id is not null && pwi.Fields is not null)
+                        parentMap[pwi.Id.Value] = AdoWorkItemMapper.ToContext(pwi);
+                }
+            }
+
+            var items = AdoWorkItemMapper.MapWithParents(workItems, parentMap);
+            return items.Count > 0 ? items : null;
+        }
+        catch (VssServiceException ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch work items for PR #{PrId}", req.PullRequestId);
+            return null;
+        }
+    }
+
     private async Task<string?> ReadFile(
         ReviewRequest req,
         string path,
@@ -498,10 +507,6 @@ public class AdoConnector(
         }
     }
 
-    private record CodeSearchResponse(int Count, List<CodeSearchHit>? Results);
-    private record CodeSearchHit(string FileName, string Path, Dictionary<string, List<CodeSearchMatch>?>? Matches = null);
-    private record CodeSearchMatch(int CharOffset, int Length);
-
     private static string FormatComment(Finding finding)
     {
         if (string.IsNullOrWhiteSpace(finding.CodeFix))
@@ -509,4 +514,8 @@ public class AdoConnector(
 
         return $"{finding.Message}\n\n```suggestion\n{finding.CodeFix}\n```";
     }
+
+    private record CodeSearchResponse(int Count, List<CodeSearchHit>? Results);
+    private record CodeSearchHit(string FileName, string Path, Dictionary<string, List<CodeSearchMatch>?>? Matches = null);
+    private record CodeSearchMatch(int CharOffset, int Length);
 }

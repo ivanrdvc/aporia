@@ -52,9 +52,11 @@ public class AppFixture : IAsyncLifetime
         builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 
         // Infrastructure
-        builder.AddOpenTelemetry();
+        builder.Services.AddOpenTelemetry(builder.Configuration);
         builder.Services.AddChatClients(builder.Configuration);
         builder.Services.AddCosmos(builder.Configuration);
+        builder.Services.AddSingleton<GitHubTokenService>();
+        builder.Services.AddHttpClient(GitHubTokenService.TokenClientName);
 
         switch (provider)
         {
@@ -88,13 +90,9 @@ public class AppFixture : IAsyncLifetime
         builder.Services.AddSingleton(new FileAgentSkillsProvider(
             skillPath: Path.Combine(AppContext.BaseDirectory, "Skills")));
         builder.Services.AddKeyedScoped<IReviewStrategy, CoreStrategy>(ReviewStrategy.Core);
-        builder.Services.AddScoped<Reviewer>(sp => new Reviewer(
-            sp.GetRequiredKeyedService<IReviewStrategy>,
-            sp.GetRequiredService<ICodeGraphStore>(),
-            sp.GetRequiredService<IOptions<AporiaOptions>>(),
-            sp.GetRequiredService<ILogger<Reviewer>>(),
-            sp.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
-            sp.GetRequiredService<ChatHistoryProvider>()));
+        builder.Services.AddKeyedScoped<IReviewStrategy, CopilotStrategy>(ReviewStrategy.Copilot);
+        builder.Services.AddScoped<Func<string, IReviewStrategy>>(sp => key => sp.GetRequiredKeyedService<IReviewStrategy>(key));
+        builder.Services.AddScoped<Reviewer>();
 
         // Override Cosmos session provider — fresh session every run, captures to local JSON files.
         SessionDirectory = Path.Combine(AppContext.BaseDirectory, "sessions", $"run-{DateTime.UtcNow:yyyyMMdd-HHmmss}");

@@ -254,6 +254,22 @@ def parse_findings_from_log(log_text):
     return None, None
 
 
+def parse_session_dir_from_log(log_text):
+    """Extract session directory path from test log output."""
+    m = re.search(r"Sessions:\s*(.+)", log_text)
+    if m:
+        return Path(m.group(1).strip())
+    return None
+
+
+def parse_strategy_from_log(log_text):
+    """Extract strategy name from test log output (if overridden)."""
+    m = re.search(r"Strategy(?:\s+override)?:\s*(\S+)", log_text)
+    if m:
+        return m.group(1).strip()
+    return None
+
+
 def parse_parse_failure(log_text):
     """Detect 'Failed to parse ReviewResult' warnings in test log."""
     m = re.search(r"Failed to parse ReviewResult from last message \((\d+) chars, (\d+) messages\)", log_text)
@@ -534,6 +550,50 @@ def _print_summary(sessions_data, findings_count, max_comments, parse_failure=No
     return verdict
 
 
+def _print_minimal_report(run_dir, strategy, findings_count, max_comments,
+                          token_summaries, parse_failure):
+    """Print a reduced report when no session files are available.
+
+    This happens for strategies that manage their own sessions externally
+    (e.g. Copilot, ClaudeCode) and don't write through FileSessionProvider.
+    """
+    strategy_label = strategy or "unknown"
+
+    print(f"\n{'=' * 60}")
+    print(f"  Session analysis: {run_dir.name}")
+    print(f"  Strategy: {strategy_label}")
+    print(f"  Sessions: 0  (strategy uses external session management)")
+    print(f"  Path: {run_dir}")
+    print(f"{'=' * 60}")
+
+    print(f"\n## Summary\n")
+
+    if findings_count is not None:
+        status = ""
+        if findings_count == 0:
+            status = "  !! ZERO FINDINGS"
+        elif findings_count == max_comments:
+            status = "  ! hit cap"
+        print(f"  Findings:  {findings_count} / {max_comments}{status}")
+
+    if parse_failure:
+        chars, msgs = parse_failure
+        print(f"  !! Parse failure: model produced {chars} chars across {msgs} messages but JSON parsing failed")
+
+    print(f"  Session analysis: skipped (no session files for {strategy_label} strategy)")
+
+    if token_summaries:
+        print(f"\n## Token Usage\n")
+        for ts in token_summaries:
+            print(f"  trace: {ts['trace_id']}")
+            for agent in ts["agents"]:
+                print(f"    {agent}")
+            if ts["total"]:
+                print(f"    {ts['total']}")
+
+    print()
+
+
 def print_report(run_dir, sessions_data, token_summaries, budgets,
                  findings_count, max_comments, verbose,
                  match_results=None, extras=None, parse_failure=None,
@@ -736,20 +796,39 @@ def main():
         if session_dir is None and log_file is None:
             return
 
+    # Parse log early — we need it for session dir resolution and strategy detection
+    log_text = None
+    token_summaries = None
+    findings_count = None
+    max_comments = None
+    parse_failure = None
+    strategy = None
+    if log_file and log_file.exists():
+        log_text = log_file.read_text(encoding="utf-8")
+        token_summaries = parse_token_summary(log_text)
+        findings_count, max_comments = parse_findings_from_log(log_text)
+        parse_failure = parse_parse_failure(log_text)
+        strategy = parse_strategy_from_log(log_text)
+
+    # Resolve session dir: explicit arg > log file > latest on disk
+    if session_dir is None and log_text:
+        session_dir = parse_session_dir_from_log(log_text)
     if session_dir is None:
         session_dir = find_latest_run(SESSIONS_ROOT)
         if not session_dir:
             print(f"No run-* directories found under {SESSIONS_ROOT}")
             sys.exit(1)
 
-    if not session_dir.exists():
-        print(f"Directory not found: {session_dir}")
-        sys.exit(1)
+    sessions = load_sessions(session_dir) if session_dir.exists() else []
 
-    sessions = load_sessions(session_dir)
+    # Strategies that use external session management (Copilot, ClaudeCode) don't write
+    # session files through FileSessionProvider. Produce a minimal log-only report.
     if not sessions:
-        print(f"No session JSON files found in {session_dir}")
-        sys.exit(1)
+        _print_minimal_report(session_dir, strategy, findings_count, max_comments,
+                              token_summaries, parse_failure)
+        append_history(session_dir, findings_count, max_comments, [], token_summaries,
+                       "NO_SESSIONS")
+        return
 
     sessions_data = []
     budgets = []
@@ -763,17 +842,6 @@ def main():
         data["agent"] = agent
         sessions_data.append(data)
         budgets.append(_measure_session(label, session))
-
-    # Parse log for token summary, findings count, and parse failures
-    token_summaries = None
-    findings_count = None
-    max_comments = None
-    parse_failure = None
-    if log_file and log_file.exists():
-        log_text = log_file.read_text(encoding="utf-8")
-        token_summaries = parse_token_summary(log_text)
-        findings_count, max_comments = parse_findings_from_log(log_text)
-        parse_failure = parse_parse_failure(log_text)
 
     # Extract actual findings from reviewer session and match against expectations
     match_results = None

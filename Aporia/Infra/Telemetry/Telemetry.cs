@@ -19,9 +19,9 @@ public static class Telemetry
     public static readonly Histogram<int> DiffSize = Meter.CreateHistogram<int>(
         "aporia.diff.size", "chars", "Total diff size in characters");
 
-    public static void RecordReview(ReviewRequest req, Diff diff)
+    public static void RecordReview(ReviewRequest req, Diff diff, string strategy)
     {
-        var tags = new TagList { { "project", req.Project }, { "repository", req.RepositoryId } };
+        var tags = new TagList { { "project", req.Project }, { "repository", req.RepositoryId }, { "strategy", strategy } };
         ReviewsProcessed.Add(1, tags);
         DiffFiles.Record(diff.Files.Count, tags);
         DiffSize.Record(diff.Files.Sum(f => f.Patch?.Length ?? 0), tags);
@@ -45,6 +45,10 @@ public static class Telemetry
     public static readonly Counter<int> ExplorationFailures = Meter.CreateCounter<int>(
         "aporia.agent.exploration_failures", description: "Explorer invocations that failed or returned invalid output");
 
-    public static readonly Counter<int> AgentMaxTurnsHit = Meter.CreateCounter<int>(
-        "aporia.agent.max_turns_hit", description: "Agent runs that ended with a non-completed finish reason");
+    public static readonly Counter<int> AgentAbnormalFinish = Meter.CreateCounter<int>(
+        "aporia.agent.abnormal_finish", description: "Agent runs that ended with a non-stop finish reason (length, content filter, etc.)");
+
+    // Copilot strategy
+    public static readonly Counter<int> CopilotExtractionFailures = Meter.CreateCounter<int>(
+        "aporia.copilot.extraction_failures", description: "Copilot reviews where structured extraction failed");
 }

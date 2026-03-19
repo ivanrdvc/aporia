@@ -26,13 +26,14 @@ public class ReviewTests(
     {
         await ResetReviewState(TestEvent);
 
-        var config = await Git.GetConfig(TestEvent);
+        var config = ApplyStrategyOverride(await Git.GetConfig(TestEvent));
         var diff = await Git.GetDiff(TestEvent, config);
         var prContext = await Git.GetPrContext(TestEvent);
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
 
         await Git.PostReview(TestEvent, diff, result);
 
+        Output.WriteLine($"Strategy: {config.Review.Strategy ?? "core (default)"}");
         Output.WriteLine($"Findings: {result.Findings.Count}  (maxComments: {config.Review.MaxComments})");
         var files = result.Findings.Select(f => f.FilePath).Distinct().ToList();
         Output.WriteLine($"Files: {string.Join(", ", files)}");
@@ -83,6 +84,28 @@ public class ReviewTests(
 
         Assert.NotNull(prContext.WorkItems);
         Assert.NotEmpty(prContext.WorkItems);
+    }
+
+    /// <summary>
+    /// If TestTarget:Strategy is set (e.g. via env var TestTarget__Strategy=copilot),
+    /// override the strategy from the repo's .aporia.json config.
+    /// </summary>
+    private ProjectConfig ApplyStrategyOverride(ProjectConfig config)
+    {
+        var strategyOverride = Services.GetRequiredService<IConfiguration>()
+            .GetValue<string>("TestTarget:Strategy");
+
+        if (strategyOverride is null)
+            return config;
+
+        Output.WriteLine($"Strategy override: {strategyOverride}");
+        return new ProjectConfig
+        {
+            Review = new ReviewConfig { Strategy = strategyOverride, MaxComments = config.Review.MaxComments },
+            Files = config.Files,
+            Rules = config.Rules,
+            Context = config.Context
+        };
     }
 
     [Fact]

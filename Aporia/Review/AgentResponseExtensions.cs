@@ -20,7 +20,7 @@ internal static class AgentResponseExtensions
         if (response.FinishReason is { } reason && reason != ChatFinishReason.Stop)
         {
             logger.LogWarning("Agent finished with reason {FinishReason}", reason);
-            Telemetry.AgentMaxTurnsHit.Add(1);
+            Telemetry.AgentAbnormalFinish.Add(1);
         }
 
         var text = response.Messages.LastOrDefault()?.Text ?? "";

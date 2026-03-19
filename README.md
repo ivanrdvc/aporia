@@ -1,67 +1,36 @@
 # Aporia
 
-[![CI](https://github.com/ivanrdvc/aporia/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanrdvc/aporia/actions/workflows/ci.yml)
+[![CI](https://github.com/ivanrdvc/aporia/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanrdvc/aporia/actions/workflows/ci.yml) [![Deploy](https://github.com/ivanrdvc/aporia/actions/workflows/deploy.yml/badge.svg)](https://github.com/ivanrdvc/aporia/actions/workflows/deploy.yml) [![Release](https://github.com/ivanrdvc/aporia/actions/workflows/release.yml/badge.svg)](https://github.com/ivanrdvc/aporia/actions/workflows/release.yml)
 
 AI code review for pull requests.
 
 ## Features
 
-- **Inline AI comments** — line-by-line review findings posted directly on the PR diff
-- **Committable suggestions** — one-click apply code suggestions from the review
-- **PR summaries** — per-file overview of what changed in the PR
-- **Incremental reviews** — only reviews new iterations, skips already-reviewed changes
+- **AI code review** — line-level findings with committable suggestions and a per-file summary, posted directly on the PR diff
+- **Multi-provider** — supports GitHub and Azure DevOps
 - **PR chat** — reply to a finding or mention `@aporia` anywhere on the PR for a follow-up conversation
 - **Review skills** — on-demand domain knowledge (security, framework patterns, etc.) loaded by the reviewer when relevant
+- **Code graph** — indexes repo structure (classes, methods, dependencies) so the reviewer understands cross-file context
+- **Multiple review engines** — pluggable strategies: direct API or GitHub Copilot (Claude Code CLI planned)
 
 ## Run locally
 
-Prerequisites: [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local),
-[Docker](https://docs.docker.com/get-docker/) (optional, for OpenObserve).
+Prerequisites: [.NET 10](https://dotnet.microsoft.com/download),
+[Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local),
+[Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) (or Azure Storage).
 
-Copy the template and fill in your credentials and AI keys. GitHub supports both PAT and
-[GitHub App](docs/setup.md#github) auth (App recommended — comments post as `aporia[bot]`):
+1. Copy settings and fill in your credentials (AI keys, provider PAT/App, Cosmos):
+   ```bash
+   cp Aporia/local.settings.example.json Aporia/local.settings.json
+   ```
 
-```bash
-cp Aporia/local.settings.example.json Aporia/local.settings.json
-```
+2. Start the function host:
+   ```bash
+   cd Aporia && func start
+   ```
 
-Configure AI credentials in [.NET user secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets)
-(shared by all test projects):
-
-```bash
-cd Aporia
-dotnet user-secrets set "Ai:Anthropic:ApiKey" "sk-ant-..."
-```
-
-Start the function host:
-
-```bash
-cd Aporia
-func start
-```
-
-To receive real ADO/GitHub webhooks locally, create a persistent dev tunnel:
-
-```bash
-devtunnel create aporia --allow-anonymous
-devtunnel port create aporia -p 7071
-devtunnel host aporia
-```
-
-Then point your ADO service hooks at `{tunnel-url}/api/webhook/ado` (PR created/updated) and
-`{tunnel-url}/api/webhook/ado/comment` (PR commented on). See [docs/setup.md](docs/setup.md)
-for full deployment and webhook configuration.
-
-Optional: start [OpenObserve](https://openobserve.ai/) for local observability (logs, traces, metrics):
-
-```bash
-docker run --rm -it -p 5080:5080 \
-  -e ZO_ROOT_USER_EMAIL=root@example.com \
-  -e ZO_ROOT_USER_PASSWORD=Complexpass#123 \
-  --name openobserve openobserve/openobserve:latest
-```
-
-Dashboard at http://localhost:5080 (see [docs/observability.md](docs/observability.md)).
+See [docs/setup.md](docs/setup.md) for webhook tunnels and full deployment,
+and [docs/observability.md](docs/observability.md) for local telemetry.
 
 ## Getting started
 
@@ -75,31 +44,7 @@ hooks for PR events. Optionally drop a `.aporia.json` in the repo root to custom
 Drop a `.aporia.json` file in the root of your repository to customize review behavior. All fields
 are optional; sensible defaults apply when omitted.
 
-```jsonc
-{
-  // Free-text context about the repo (fed to the reviewer as background)
-  "context": "E-commerce API, .NET 10, DDD with CQRS",
-
-  // Custom review rules (appended to built-in prompt)
-  "rules": [
-    "Prefer record types for DTOs",
-    "All public methods must have XML doc comments"
-  ],
-
-  "review": {
-    // Max inline comments per review (default: 5)
-    "maxComments": 10
-  },
-
-  "files": {
-    // File extensions to review (default: .cs, .ts, .js, .jsx, .tsx)
-    "allowedExtensions": [".cs", ".ts"],
-
-    // Glob patterns to skip (merged with built-in ignores like bin/, node_modules/)
-    "ignore": ["**/Migrations/**"]
-  }
-}
-```
+See [`.aporia.example.json`](.aporia.example.json) for all available options.
 
 ### Skills
 

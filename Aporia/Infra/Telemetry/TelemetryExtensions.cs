@@ -1,8 +1,8 @@
 using Azure.Monitor.OpenTelemetry.Exporter;
 
 using Microsoft.Azure.Functions.Worker.OpenTelemetry;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using OpenTelemetry;
@@ -13,15 +13,15 @@ namespace Aporia.Infra.Telemetry;
 
 public static class TelemetryExtensions
 {
-    public static void AddOpenTelemetry(this IHostApplicationBuilder builder)
+    public static void AddOpenTelemetry(this IServiceCollection services, IConfiguration configuration)
     {
-        builder.Logging.AddOpenTelemetry(logging =>
+        services.AddLogging(logging => logging.AddOpenTelemetry(otel =>
         {
-            logging.IncludeFormattedMessage = true;
-            logging.IncludeScopes = true;
-        });
+            otel.IncludeFormattedMessage = true;
+            otel.IncludeScopes = true;
+        }));
 
-        var otel = builder.Services
+        var otel = services
             .AddOpenTelemetry()
             .UseFunctionsWorkerDefaults()
             .WithTracing(tracing => tracing
@@ -36,10 +36,10 @@ public static class TelemetryExtensions
                 .AddMeter("Microsoft.Extensions.AI*")
                 .AddHttpClientInstrumentation());
 
-        if (builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is not null)
+        if (configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is not null)
             otel.UseOtlpExporter();
 
-        if (builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] is not null)
+        if (configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] is not null)
             otel.UseAzureMonitorExporter();
     }
 }

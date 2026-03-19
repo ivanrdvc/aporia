@@ -1,7 +1,125 @@
+using System.Text;
+using System.Text.RegularExpressions;
+
+using Aporia.Git;
+
 namespace Aporia.Review;
 
 public static class Prompts
 {
+    internal static string BuildReviewPrompt(Diff diff)
+    {
+        var sb = new StringBuilder();
+        const int smallFileTokenThreshold = 1500;
+
+        var decisions = new List<(FileChange file, string level)>();
+        foreach (var file in diff.Files)
+        {
+            if (file.Kind is ChangeKind.Delete)
+                decisions.Add((file, "delete"));
+            else if (file.Patch is not null && file.Content is not null
+                                            && TokenCounter.Count(file.Content) <= smallFileTokenThreshold)
+                decisions.Add((file, "full"));
+            else if (file.Patch is not null)
+                decisions.Add((file, "diff"));
+            else if (file.Kind is ChangeKind.Rename)
+                decisions.Add((file, "rename"));
+        }
+
+        // Emit manifest
+        var fullFiles = decisions.Where(d => d.level == "full").ToList();
+        var diffFiles = decisions.Where(d => d.level == "diff").ToList();
+
+        sb.AppendLine("## Changed files\n");
+
+        if (fullFiles.Count > 0)
+        {
+            sb.AppendLine("Full source (do NOT fetch — you have complete context):");
+            foreach (var (f, _) in fullFiles)
+                sb.AppendLine($"- {f.Path}");
+            sb.AppendLine();
+        }
+
+        if (diffFiles.Count > 0)
+        {
+            sb.AppendLine("Diff only (fetch for full file if needed):");
+            foreach (var (f, _) in diffFiles)
+                sb.AppendLine($"- {f.Path}");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("---\n");
+
+        // Emit file sections
+        foreach (var (file, level) in decisions)
+        {
+            switch (level)
+            {
+                case "full":
+                    sb.AppendLine($"### {file.Path}");
+                    if (file.Kind is ChangeKind.Rename && file.OldPath is not null)
+                        sb.AppendLine($"(renamed from `{file.OldPath}`)");
+                    sb.AppendLine(AnnotatePatchWithLineNumbers(file.Patch!));
+                    sb.AppendLine($"\n<full-source>\n{file.Content}\n</full-source>");
+                    break;
+
+                case "diff":
+                    sb.AppendLine($"### {file.Path}");
+                    if (file.Kind is ChangeKind.Rename && file.OldPath is not null)
+                        sb.AppendLine($"(renamed from `{file.OldPath}`)");
+                    sb.AppendLine(AnnotatePatchWithLineNumbers(file.Patch!));
+                    break;
+
+                case "rename":
+                    sb.AppendLine($"- {file.Path} — renamed from `{file.OldPath}` (no content changes)");
+                    break;
+
+                case "delete":
+                    sb.AppendLine($"- {file.Path} — deleted");
+                    break;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static readonly Regex HunkHeaderRegex = new(@"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@");
+
+    internal static string AnnotatePatchWithLineNumbers(string patch)
+    {
+        var sb = new StringBuilder();
+        var lineNum = 0;
+
+        foreach (var line in patch.Split('\n'))
+        {
+            var hunkMatch = HunkHeaderRegex.Match(line);
+            if (hunkMatch.Success)
+            {
+                lineNum = int.Parse(hunkMatch.Groups[1].Value);
+                sb.AppendLine(line);
+            }
+            else if (line.StartsWith('-'))
+            {
+                sb.AppendLine($"      {line}");
+            }
+            else if (line.StartsWith(' ') || line.StartsWith('+'))
+            {
+                sb.AppendLine($"{lineNum,5} {line}");
+                lineNum++;
+            }
+            else if (line.Length > 0)
+            {
+                sb.AppendLine($"      {line}");
+            }
+            else
+            {
+                sb.AppendLine(line);
+            }
+        }
+
+        return sb.ToString();
+    }
+
     internal const string ReviewerInstructions =
         """
         <role>

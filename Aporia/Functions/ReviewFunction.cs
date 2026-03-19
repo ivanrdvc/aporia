@@ -27,7 +27,7 @@ public class ReviewFunction(
         var config = await git.GetConfig(req);
         var diff = await git.GetDiff(req, config);
 
-        Telemetry.RecordReview(req, diff);
+        Telemetry.RecordReview(req, diff, config.Review.Strategy ?? ReviewStrategy.Core);
 
         if (diff.Files.Count == 0)
         {

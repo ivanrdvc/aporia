@@ -22,6 +22,10 @@ argument-hint: "[profile-hint | session]"
 3. Parse the arguments as natural language. Extract:
    - **Profile hint** — match against `TestProfiles` keys (case-insensitive substring).
      Exactly one match → use it. Multiple → ask. Zero → list available.
+   - **Strategy override** — if the user says "using X strategy", "with X", or
+     "X strategy" (where X is `core`, `copilot`, `claude-code`), set
+     `TestTarget__Strategy=X` in the test env vars. If no strategy is mentioned,
+     don't set it (defaults to whatever `.aporia.json` specifies, or `core`).
    - **Existing PR** — if the user references a specific PR (by number, URL, name, or
      description), this is an existing-PR run. Skip create/cleanup (steps 1 and 5).
      Determine PR ID and source branch:
