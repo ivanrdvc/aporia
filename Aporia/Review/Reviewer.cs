@@ -3,12 +3,14 @@ using System.Text;
 
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Aporia.CodeGraph;
 using Aporia.Git;
 using Aporia.Infra;
+using Aporia.Infra.AI;
 using Aporia.Infra.Cosmos;
 using Aporia.Infra.Middleware;
 using Aporia.Infra.Telemetry;
@@ -20,7 +22,7 @@ public class Reviewer(
     ICodeGraphStore codeGraphStore,
     IOptions<AporiaOptions> options,
     ILogger<Reviewer> logger,
-    IChatClient chatClient,
+    [FromKeyedServices(ModelKey.Default)] IChatClient chatClient,
     ChatHistoryProvider sessionProvider)
 {
     private const int DefaultMaxComments = 5;

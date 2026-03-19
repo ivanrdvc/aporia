@@ -55,7 +55,7 @@ public class EvalFixture : IAsyncLifetime
 
         builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 
-        builder.AddOpenTelemetry();
+        builder.Services.AddOpenTelemetry(builder.Configuration);
         builder.Services.AddChatClients(builder.Configuration);
 
         _host = builder.Build();

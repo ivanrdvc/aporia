@@ -89,7 +89,6 @@ public record ChatRequest(
     public const string ReviewMarker = "<!-- aporia:review -->";
 }
 
-
 public record ChatThreadContext(
     int ThreadId,
     string? Fingerprint,

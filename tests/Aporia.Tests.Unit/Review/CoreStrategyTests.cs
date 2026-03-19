@@ -64,7 +64,7 @@ public class CoreStrategyTests
                     "+        {\n" +
                     "+            var cred = \"postgres\";";
 
-        var result = CoreStrategy.AnnotatePatchWithLineNumbers(patch);
+        var result = Prompts.AnnotatePatchWithLineNumbers(patch);
 
         Assert.Contains("   91  ", result);
         Assert.Contains("   94 +", result);
@@ -76,7 +76,7 @@ public class CoreStrategyTests
     {
         var patch = "@@ -1,3 +1,3 @@\n context\n-old line\n+new line";
 
-        var result = CoreStrategy.AnnotatePatchWithLineNumbers(patch);
+        var result = Prompts.AnnotatePatchWithLineNumbers(patch);
 
         Assert.Contains("    1  context", result);
         Assert.Contains("      -old line", result);

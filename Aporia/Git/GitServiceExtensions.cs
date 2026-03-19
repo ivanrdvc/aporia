@@ -9,9 +9,10 @@ public static class GitServiceExtensions
     public static IServiceCollection AddGitHub(this IServiceCollection services)
     {
         services.AddOptions<GitHubOptions>().BindConfiguration(GitHubOptions.SectionName).ValidateDataAnnotations();
+        services.AddSingleton<GitHubTokenService>();
         services.AddTransient<GitHubAuthHandler>();
         services.AddHttpClient<GitHubConnector>(ConfigureGitHubClient).AddHttpMessageHandler<GitHubAuthHandler>();
-        services.AddHttpClient(GitHubAuthHandler.TokenClientName, ConfigureGitHubClient);
+        services.AddHttpClient(GitHubTokenService.TokenClientName, ConfigureGitHubClient);
         services.AddKeyedScoped<IGitConnector>(GitProvider.GitHub, (sp, _) => sp.GetRequiredService<GitHubConnector>());
 
         return services;

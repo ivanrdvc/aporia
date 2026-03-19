@@ -13,7 +13,7 @@ public class TokenBudgetTests
             new FileChange("small.cs", ChangeKind.Edit, "+ public class Foo { }", smallSource)
         ]);
 
-        var prompt = CoreStrategy.BuildReviewPrompt(diff);
+        var prompt = Prompts.BuildReviewPrompt(diff);
 
         // Diff is preserved (shows what changed)
         Assert.Contains("+ public class Foo { }", prompt);
@@ -31,7 +31,7 @@ public class TokenBudgetTests
             new FileChange("large.cs", ChangeKind.Edit, "+ added", largeSource)
         ]);
 
-        var prompt = CoreStrategy.BuildReviewPrompt(diff);
+        var prompt = Prompts.BuildReviewPrompt(diff);
 
         Assert.DoesNotContain("<full-source>", prompt);
         Assert.Contains("### large.cs", prompt);

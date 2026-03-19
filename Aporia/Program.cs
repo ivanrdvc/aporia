@@ -3,8 +3,6 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 using Aporia.Git;
 using Aporia.Infra;
@@ -20,7 +18,7 @@ builder.ConfigureFunctionsWebApplication();
 builder.Services.AddOptions<AporiaOptions>().BindConfiguration(AporiaOptions.SectionName);
 
 // Infrastructure
-builder.AddOpenTelemetry();
+builder.Services.AddOpenTelemetry(builder.Configuration);
 builder.Services.AddChatClients(builder.Configuration);
 builder.Services.AddCosmos(builder.Configuration);
 builder.Services.AddGitHub();
@@ -30,12 +28,8 @@ builder.Services.AddSingleton<PrContextProvider>();
 
 // Domain
 builder.Services.AddKeyedScoped<IReviewStrategy, CoreStrategy>(ReviewStrategy.Core);
-builder.Services.AddScoped<Reviewer>(sp => new Reviewer(
-    sp.GetRequiredKeyedService<IReviewStrategy>,
-    sp.GetRequiredService<ICodeGraphStore>(),
-    sp.GetRequiredService<IOptions<AporiaOptions>>(),
-    sp.GetRequiredService<ILogger<Reviewer>>(),
-    sp.GetRequiredKeyedService<IChatClient>(ModelKey.Default),
-    sp.GetRequiredService<ChatHistoryProvider>()));
+builder.Services.AddKeyedScoped<IReviewStrategy, CopilotStrategy>(ReviewStrategy.Copilot);
+builder.Services.AddScoped<Func<string, IReviewStrategy>>(sp => key => sp.GetRequiredKeyedService<IReviewStrategy>(key));
+builder.Services.AddScoped<Reviewer>();
 
 builder.Build().Run();
