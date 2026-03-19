@@ -16,6 +16,8 @@ namespace Aporia.Git;
 public partial class GitHubConnector(
     IPrStateStore stateStore,
     HttpClient http,
+    GitHubTokenService tokenService,
+    IOptions<GitHubOptions> ghOptions,
     IOptions<AporiaOptions> aporiaOptions,
     ILogger<GitHubConnector> logger) : IGitConnector
 {
@@ -582,5 +584,15 @@ public partial class GitHubConnector(
     private record DiffHunk(int Start, int End)
     {
         public bool Contains(int line) => line >= Start && line <= End;
+    }
+
+    public async Task<CloneCredentials> GetCloneCredentials(ReviewRequest req)
+    {
+        var config = ghOptions.Value;
+        var token = config.UseApp && req.InstallationId is { } id
+            ? await tokenService.GetInstallationTokenAsync(config, id)
+            : config.Token ?? throw new InvalidOperationException("No GitHub auth configured for cloning.");
+
+        return new($"https://github.com/{req.Organization}/{req.RepositoryName}.git", token);
     }
 }

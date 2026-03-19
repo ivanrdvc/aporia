@@ -61,4 +61,7 @@ public sealed class FixtureGitConnector(Dictionary<string, string> files) : IGit
         SearchCodeCalls.Add((query, results.Count));
         return Task.FromResult<IReadOnlyList<SearchResult>>(results);
     }
+
+    public Task<CloneCredentials> GetCloneCredentials(ReviewRequest req) =>
+        throw new NotSupportedException("Eval uses fixture data, not local clones.");
 }

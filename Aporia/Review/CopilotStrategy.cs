@@ -5,7 +5,6 @@ using GitHub.Copilot.SDK;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 using Aporia.Git;
 using Aporia.Infra.AI;
@@ -15,24 +14,35 @@ namespace Aporia.Review;
 
 public class CopilotStrategy(
     [FromKeyedServices(ModelKey.Default)] IChatClient extractionClient,
-    IOptions<AdoOptions> adoOptions,
-    IOptions<GitHubOptions> ghOptions,
-    GitHubTokenService gitHubTokenService,
+    IServiceProvider sp,
     ILogger<CopilotStrategy> logger) : IReviewStrategy
 {
-    // Copilot operates on a local clone; code graph is not applicable.
+    private static readonly TimeSpan AgentTimeout = TimeSpan.FromMinutes(5);
+
     public async Task<ReviewResult> Review(
         ReviewRequest req, Diff diff, ProjectConfig config, PrContext prContext,
         CodeGraph.CodeGraphQuery? codeGraph = null, CancellationToken ct = default)
     {
-        var (cloneUrl, token) = await GetCloneCredentials(req);
+        // Shared budget for clone + agent + extraction. Distinguishes our timeout from caller cancellation.
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(AgentTimeout);
 
-        await using var clone = await RepoClone.CreateAsync(cloneUrl, req.SourceBranch, token, ct);
+        var git = sp.GetRequiredKeyedService<IGitConnector>(req.Provider);
+        var creds = await git.GetCloneCredentials(req);
+
+        await using var clone = await RepoClone.CreateAsync(creds.Url, req.SourceBranch, creds.Token, cts.Token);
 
         logger.LogInformation("Cloned {Repo} ({Branch}) to {Path}", req.RepositoryName, req.SourceBranch, clone.Path);
 
         await using var client = new CopilotClient(new CopilotClientOptions { AutoStart = false });
-        await client.StartAsync(ct);
+        await client.StartAsync(cts.Token);
+
+        // SessionConfig doesn't support AIContextProviders, so manually build the
+        // same context that PrContextProvider would inject for CoreStrategy.
+        var contextInstructions = PrContextProvider.BuildInstructions(prContext, config);
+        var systemMessage = string.IsNullOrEmpty(contextInstructions)
+            ? Prompts.ReviewerInstructions
+            : $"{Prompts.ReviewerInstructions}\n\n{contextInstructions}";
 
         var agent = client.AsAIAgent(
             sessionConfig: new SessionConfig
@@ -41,7 +51,7 @@ public class CopilotStrategy(
                 SystemMessage = new SystemMessageConfig
                 {
                     Mode = SystemMessageMode.Append,
-                    Content = Prompts.ReviewerInstructions
+                    Content = systemMessage
                 },
                 OnPermissionRequest = HandlePermission,
             });
@@ -49,15 +59,24 @@ public class CopilotStrategy(
         var prompt = Prompts.BuildReviewPrompt(diff);
         logger.LogInformation("Sending prompt ({Length} chars) to Copilot agent...", prompt.Length);
 
-        var session = await agent.CreateSessionAsync(cancellationToken: ct);
+        var session = await agent.CreateSessionAsync(cancellationToken: cts.Token);
 
         // Use streaming — RunAsync aggregation loses text because the MAF adapter wraps
         // AssistantMessageEvent as base AIContent instead of TextContent.
         var sb = new StringBuilder();
-        await foreach (var update in agent.RunStreamingAsync(prompt, session, cancellationToken: ct))
+        try
         {
-            foreach (var content in update.Contents.OfType<TextContent>())
-                sb.Append(content.Text);
+            await foreach (var update in agent.RunStreamingAsync(prompt, session, cancellationToken: cts.Token))
+            {
+                foreach (var content in update.Contents.OfType<TextContent>())
+                    sb.Append(content.Text);
+            }
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Our timeout fired, not the caller's cancellation.
+            // Partial response may still be usable for extraction.
+            logger.LogWarning("Copilot agent timed out after {Timeout}", AgentTimeout);
         }
 
         var responseText = sb.ToString();
@@ -77,7 +96,9 @@ public class CopilotStrategy(
             Preserve the summary as-is.
 
             ---
+            <copilot_response>
             {responseText}
+            </copilot_response>
             """,
             new ChatOptions
             {
@@ -112,34 +133,4 @@ public class CopilotStrategy(
         return Task.FromResult(new PermissionRequestResult { Kind = allowed ? "approved" : "denied" });
     }
 
-    private async Task<(string cloneUrl, string token)> GetCloneCredentials(ReviewRequest req) => req.Provider switch
-    {
-        GitProvider.GitHub => (
-            $"https://github.com/{req.Organization}/{req.RepositoryName}.git",
-            await GetGitHubToken(req)),
-
-        GitProvider.Ado => (
-            $"https://dev.azure.com/{req.Organization}/{req.Project}/_git/{req.RepositoryName}",
-            adoOptions.Value.Organizations.Values
-                .FirstOrDefault(o => o.Organization == req.Organization)
-                ?.PersonalAccessToken
-                ?? throw new InvalidOperationException(
-                    $"No ADO configuration found for organization '{req.Organization}'.")),
-
-        _ => throw new NotSupportedException($"Provider {req.Provider} is not supported by CopilotStrategy.")
-    };
-
-    private Task<string> GetGitHubToken(ReviewRequest req)
-    {
-        var config = ghOptions.Value;
-
-        if (config.UseApp && req.InstallationId is { } installationId)
-            return gitHubTokenService.GetInstallationTokenAsync(config, installationId);
-
-        if (!string.IsNullOrWhiteSpace(config.Token))
-            return Task.FromResult(config.Token);
-
-        throw new InvalidOperationException(
-            "No GitHub auth available for cloning. Configure a PAT or GitHub App credentials.");
-    }
 }

@@ -15,7 +15,14 @@ public interface IGitConnector
     Task<PrContext> GetPrContext(ReviewRequest req);
     Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId);
     Task PostChatReply(ReviewRequest req, int threadId, string body);
+
+    /// <summary>
+    /// Returns a clone URL and auth token for strategies that operate on a local checkout.
+    /// </summary>
+    Task<CloneCredentials> GetCloneCredentials(ReviewRequest req);
 }
+
+public record CloneCredentials(string Url, string Token);
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ChangeKind { Add, Edit, Delete, Rename }
