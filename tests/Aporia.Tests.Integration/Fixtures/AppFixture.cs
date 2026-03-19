@@ -55,6 +55,8 @@ public class AppFixture : IAsyncLifetime
         builder.Services.AddOpenTelemetry(builder.Configuration);
         builder.Services.AddChatClients(builder.Configuration);
         builder.Services.AddCosmos(builder.Configuration);
+        builder.Services.AddSingleton<GitHubTokenService>();
+        builder.Services.AddHttpClient(GitHubTokenService.TokenClientName);
 
         switch (provider)
         {
