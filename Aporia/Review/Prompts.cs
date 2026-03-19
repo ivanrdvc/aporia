@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 using Aporia.Git;
-using Aporia.Infra.AI;
 
 namespace Aporia.Review;
 

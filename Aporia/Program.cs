@@ -1,13 +1,11 @@
 using Microsoft.Agents.AI;
 using Microsoft.Azure.Functions.Worker.Builder;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using Aporia.Git;
 using Aporia.Infra;
 using Aporia.Infra.AI;
-using Aporia.Infra.Cosmos;
 using Aporia.Infra.Telemetry;
 using Aporia.Review;
 
