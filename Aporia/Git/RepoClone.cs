@@ -82,10 +82,10 @@ public sealed class RepoClone : IAsyncDisposable
             // Read stderr concurrently with WaitForExit to avoid pipe-buffer deadlocks.
             var stderrTask = process.StandardError.ReadToEndAsync(ct);
             await process.WaitForExitAsync(ct);
+            var stderr = await stderrTask;
 
             if (process.ExitCode != 0)
             {
-                var stderr = await stderrTask;
                 TryDelete(tempDir);
                 throw new InvalidOperationException($"git clone failed (exit {process.ExitCode}): {stderr}");
             }
