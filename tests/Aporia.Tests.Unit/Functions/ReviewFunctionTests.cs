@@ -25,17 +25,18 @@ public class ReviewFunctionTests
     private readonly ReviewRequest _req = new(
         GitProvider.Ado, "proj", "repo-1", "repo-1", 42, "refs/heads/feature", "refs/heads/main");
 
-    private ReviewFunction CreateSut()
+    private ReviewFunction CreateSut(AporiaOptions? aporiaOptions = null)
     {
         var services = new ServiceCollection();
         services.AddKeyedSingleton<IGitConnector>(GitProvider.Ado, _git);
         var sp = services.BuildServiceProvider();
+        var opts = aporiaOptions ?? new AporiaOptions();
 
         return new(
             sp,
             new Reviewer(_ => _strategy, _codeGraphStore, Options.Create(new AporiaOptions { EnableCodeGraph = true }), NullLogger<Reviewer>.Instance, Substitute.For<IChatClient>(), new InMemoryChatHistoryProvider()),
             _reviewStore,
-            Options.Create(new AporiaOptions()),
+            Options.Create(opts),
             NullLogger<ReviewFunction>.Instance);
     }
 
@@ -68,6 +69,24 @@ public class ReviewFunctionTests
 
         await _reviewStore.Received(1).SaveAsync(
             _req, Arg.Any<Diff>(), ReviewStatus.Skipped, Arg.Any<ReviewResult?>());
+    }
+
+    [Fact]
+    public async Task Run_PostCommentsDisabled_SkipsPostReview()
+    {
+        var diff = new Diff([new FileChange("a.cs", ChangeKind.Edit, "+ x")], "3");
+        var result = new ReviewResult([new Finding("a.cs", 1, null, Severity.Warning, "msg")], "summary");
+
+        _git.GetConfig(_req).Returns(ProjectConfig.Default);
+        _git.GetDiff(_req, ProjectConfig.Default).Returns(diff);
+        _git.GetPrContext(_req).Returns(new PrContext("Test PR", null, []));
+        _strategy.Review(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ProjectConfig>(), Arg.Any<PrContext>(), Arg.Any<CodeGraphQuery?>(), Arg.Any<CancellationToken>())
+            .Returns(result);
+
+        await CreateSut(new AporiaOptions { EnablePostComments = false }).Run(_req);
+
+        await _git.DidNotReceive().PostReview(Arg.Any<ReviewRequest>(), Arg.Any<Diff>(), Arg.Any<ReviewResult>());
+        await _reviewStore.Received(1).SaveAsync(_req, Arg.Any<Diff>(), ReviewStatus.Completed, Arg.Any<ReviewResult?>());
     }
 
     [Fact]

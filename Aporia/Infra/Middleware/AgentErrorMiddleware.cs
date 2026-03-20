@@ -19,7 +19,7 @@ public static class AgentErrorMiddleware
     {
         var sw = Stopwatch.StartNew();
 
-        var chatMessages = messages.ToArray();
+        var chatMessages = messages as ChatMessage[] ?? messages.ToArray();
         try
         {
             return await innerAgent.RunAsync(chatMessages, session, options, cancellationToken);
