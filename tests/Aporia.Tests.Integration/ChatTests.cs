@@ -36,8 +36,7 @@ public class ChatTests(
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
         await Git.PostReview(TestEvent, diff, result);
 
-        await ReviewStore.SaveAsync(TestEvent.RepositoryId, TestEvent.PullRequestId, diff.Cursor,
-            ReviewStatus.Completed, result.Findings.Count, TestEvent.ConversationId);
+        await ReviewStore.SaveAsync(TestEvent, diff, ReviewStatus.Completed, result);
 
         Output.WriteLine($"Review posted: {result.Findings.Count} findings");
 

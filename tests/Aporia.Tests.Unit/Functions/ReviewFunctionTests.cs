@@ -35,6 +35,7 @@ public class ReviewFunctionTests
             sp,
             new Reviewer(_ => _strategy, _codeGraphStore, Options.Create(new AporiaOptions { EnableCodeGraph = true }), NullLogger<Reviewer>.Instance, Substitute.For<IChatClient>(), new InMemoryChatHistoryProvider()),
             _reviewStore,
+            Options.Create(new AporiaOptions()),
             NullLogger<ReviewFunction>.Instance);
     }
 
@@ -53,7 +54,7 @@ public class ReviewFunctionTests
         await CreateSut().Run(_req);
 
         await _reviewStore.Received(1).SaveAsync(
-            "repo-1", 42, "3", ReviewStatus.Completed, 1, Arg.Any<string?>());
+            _req, Arg.Any<Diff>(), ReviewStatus.Completed, Arg.Any<ReviewResult?>());
     }
 
     [Fact]
@@ -66,7 +67,7 @@ public class ReviewFunctionTests
         await CreateSut().Run(_req);
 
         await _reviewStore.Received(1).SaveAsync(
-            "repo-1", 42, "2", ReviewStatus.Skipped, 0, Arg.Any<string?>());
+            _req, Arg.Any<Diff>(), ReviewStatus.Skipped, Arg.Any<ReviewResult?>());
     }
 
     [Fact]

@@ -1,8 +1,10 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using Aporia.Git;
+using Aporia.Infra;
 using Aporia.Infra.Cosmos;
 using Aporia.Infra.Telemetry;
 using Aporia.Review;
@@ -13,6 +15,7 @@ public class ReviewFunction(
     IServiceProvider sp,
     Reviewer reviewer,
     IReviewStore reviewStore,
+    IOptions<AporiaOptions> options,
     ILogger<ReviewFunction> logger)
 {
     public const string FunctionName = "ReviewProcessor";
@@ -32,15 +35,17 @@ public class ReviewFunction(
         if (diff.Files.Count == 0)
         {
             logger.LogInformation("No new changes for PR #{PrId}, skipping review", req.PullRequestId);
-            await reviewStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor, ReviewStatus.Skipped, 0, req.ConversationId);
+            await reviewStore.SaveAsync(req, diff, ReviewStatus.Skipped);
             return;
         }
 
         var prContext = await git.GetPrContext(req);
         var findings = await reviewer.Review(req, diff, config, prContext);
-        await git.PostReview(req, diff, findings);
 
-        logger.LogInformation("Posted {Count} findings for PR #{PrId}", findings.Findings.Count, req.PullRequestId);
-        await reviewStore.SaveAsync(req.RepositoryId, req.PullRequestId, diff.Cursor, ReviewStatus.Completed, findings.Findings.Count, req.ConversationId);
+        if (options.Value.EnablePostComments)
+            await git.PostReview(req, diff, findings);
+
+        logger.LogInformation("Review complete: {Count} findings for PR #{PrId}", findings.Findings.Count, req.PullRequestId);
+        await reviewStore.SaveAsync(req, diff, ReviewStatus.Completed, findings);
     }
 }
