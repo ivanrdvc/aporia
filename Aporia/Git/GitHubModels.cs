@@ -45,7 +45,10 @@ internal record GitHubCommitDetail(string Message);
 
 internal record GitHubReviewComment(
     long Id,
-    string? Body);
+    string? Body,
+    string? Path = null,
+    int? Line = null,
+    [property: JsonPropertyName("in_reply_to_id")] long? InReplyToId = null);
 
 internal record GitHubIssueComment(
     long Id,

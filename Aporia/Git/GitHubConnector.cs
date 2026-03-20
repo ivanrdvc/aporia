@@ -355,11 +355,69 @@ public partial class GitHubConnector(
         }
     }
 
-    public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
-        => Task.FromResult<ChatThreadContext?>(null);
+    public async Task<ChatThreadContext?> GetChatThreadContext(ChatRequest req)
+    {
+        var (owner, repo) = ParseRepoId(req.Review.RepositoryId);
+        var prNumber = req.Review.PullRequestId;
 
-    public Task PostChatReply(ReviewRequest req, int threadId, string body)
-        => Task.CompletedTask;
+        if (req.CommentKind is ChatCommentKind.IssueComment)
+        {
+            // Issue comments have no threading — return just the triggering message
+            return new ChatThreadContext(req.ThreadId, null, null, null, [req.UserMessage]);
+        }
+
+        // Review comment: fetch the root comment to get fingerprint/path/line,
+        // then collect the full thread from all PR comments
+        var rootId = req.ThreadId;
+        var root = await GetFromJsonAsync<GitHubReviewComment>(
+            req.Review, $"repos/{owner}/{repo}/pulls/comments/{rootId}");
+
+        if (root is null)
+            return null;
+
+        var fpMatch = root.Body is not null ? FingerprintRegex().Match(root.Body) : null;
+
+        // On non-Aporia threads, only respond if explicitly mentioned
+        if (fpMatch is not { Success: true } && !req.UserMessage.Contains("@aporia", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var fingerprint = fpMatch is { Success: true } m ? m.Groups[1].Value : null;
+
+        // Collect thread messages (root + replies sharing the same root)
+        var messages = new List<string>();
+        await foreach (var comment in Paginate<GitHubReviewComment>(req.Review,
+            $"repos/{owner}/{repo}/pulls/{prNumber}/comments"))
+        {
+            var isRoot = comment.Id == rootId;
+            var isReply = comment.InReplyToId == rootId;
+            if ((isRoot || isReply) && comment.Body is { Length: > 0 })
+                messages.Add(comment.Body);
+        }
+
+        return new ChatThreadContext(rootId, fingerprint, root.Path, root.Line, messages);
+    }
+
+    public async Task PostChatReply(ChatRequest req, string body)
+    {
+        var (owner, repo) = ParseRepoId(req.Review.RepositoryId);
+        var prNumber = req.Review.PullRequestId;
+        var markedBody = $"{ChatRequest.ChatMarker}\n{body}";
+
+        if (req.CommentKind is ChatCommentKind.IssueComment)
+        {
+            using var response = await SendAsync(req.Review, HttpMethod.Post,
+                $"repos/{owner}/{repo}/issues/{prNumber}/comments",
+                new { body = markedBody });
+            response.EnsureSuccessStatusCode();
+        }
+        else
+        {
+            using var response = await SendAsync(req.Review, HttpMethod.Post,
+                $"repos/{owner}/{repo}/pulls/{prNumber}/comments/{req.ThreadId}/replies",
+                new { body = markedBody });
+            response.EnsureSuccessStatusCode();
+        }
+    }
 
     private Task<HttpResponseMessage> SendAsync(ReviewRequest req, HttpMethod method, string url, object? body = null)
     {

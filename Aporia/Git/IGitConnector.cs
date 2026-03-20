@@ -13,8 +13,8 @@ public interface IGitConnector
     Task<IReadOnlyList<string>> ListFiles(ReviewRequest req, string path, bool recursive = false);
     Task<IReadOnlyList<SearchResult>> SearchCode(ReviewRequest req, string query);
     Task<PrContext> GetPrContext(ReviewRequest req);
-    Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId);
-    Task PostChatReply(ReviewRequest req, int threadId, string body);
+    Task<ChatThreadContext?> GetChatThreadContext(ChatRequest req);
+    Task PostChatReply(ChatRequest req, string body);
 
     /// <summary>
     /// Returns a clone URL and auth token for strategies that operate on a local checkout.

@@ -19,7 +19,7 @@ public class ChatFunction(
 
         var git = sp.GetRequiredKeyedService<IGitConnector>(req.Review.Provider);
 
-        var threadContext = await git.GetChatThreadContext(req.Review, req.ThreadId, req.CommentId);
+        var threadContext = await git.GetChatThreadContext(req);
 
         if (threadContext is null)
         {
@@ -28,7 +28,7 @@ public class ChatFunction(
         }
 
         var reply = await reviewer.Chat(req.Review, git, threadContext, req.UserMessage, ct);
-        await git.PostChatReply(req.Review, threadContext.ThreadId, reply);
+        await git.PostChatReply(req, reply);
 
         logger.LogInformation("Posted chat reply to thread {ThreadId} for PR #{PrId}", threadContext.ThreadId, req.Review.PullRequestId);
     }

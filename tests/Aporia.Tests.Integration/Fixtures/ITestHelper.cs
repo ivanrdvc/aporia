@@ -11,6 +11,6 @@ public interface ITestHelper
     ReviewRequest BuildRequest(int prId, string sourceBranch, string targetBranch = "refs/heads/main");
     Task<int> GetAporiaCommentCount(ReviewRequest req);
     Task PrintComments(ReviewRequest req, ITestOutputHelper output);
-    Task<(int ThreadId, int CommentId)> PostCommentOnAporiaThread(ReviewRequest req, string message);
-    Task<(int ThreadId, int CommentId, string Message)> FindLatestHumanComment(ReviewRequest req);
+    Task<(long ThreadId, long CommentId)> PostCommentOnAporiaThread(ReviewRequest req, string message);
+    Task<(long ThreadId, long CommentId, string Message)> FindLatestHumanComment(ReviewRequest req);
 }
