@@ -1,6 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
+using Aporia.Infra;
+using Aporia.Infra.Cosmos;
 using Aporia.Tests.Integration.Fixtures;
 
 using Xunit.Abstractions;
@@ -31,9 +34,14 @@ public class ReviewTests(
         var prContext = await Git.GetPrContext(TestEvent);
         var result = await Reviewer.Review(TestEvent, diff, config, prContext);
 
-        await Git.PostReview(TestEvent, diff, result);
+        var aporiaOptions = Services.GetRequiredService<IOptions<AporiaOptions>>();
+        if (aporiaOptions.Value.EnablePostComments)
+            await Git.PostReview(TestEvent, diff, result);
+
+        await ReviewStore.SaveAsync(TestEvent, diff, ReviewStatus.Completed, result);
 
         Output.WriteLine($"Strategy: {config.Review.Strategy ?? "core (default)"}");
+        Output.WriteLine($"PostComments: {aporiaOptions.Value.EnablePostComments}");
         Output.WriteLine($"Findings: {result.Findings.Count}  (maxComments: {config.Review.MaxComments})");
         var files = result.Findings.Select(f => f.FilePath).Distinct().ToList();
         Output.WriteLine($"Files: {string.Join(", ", files)}");

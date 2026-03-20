@@ -34,6 +34,10 @@ argument-hint: "[profile-hint | session]"
      - Get the source branch: ADO `az repos pr show --id {id} ...`, GitHub `gh pr view`.
    - **Repo override** — if the user names a repo different from the profile's
      `RepositoryName`, find the matching profile or pass `TestTarget__RepositoryName`.
+   - **Silent / dry run** — if the user says "silent", "no post", "dry run", "don't post",
+     or similar, set `Aporia__EnablePostComments=false` in the test env vars. This runs the
+     full review pipeline but suppresses posting comments to the PR. Useful for evaluating
+     review quality against any PR without notifying its authors.
 4. The matched profile has `Provider` inside it — use that to pick the right procedure.
 5. If an existing PR was identified, run steps 2–4 only. Do not create or close the PR.
 

@@ -1,6 +1,6 @@
 namespace Aporia.Tests.Unit.Git;
 
-public class GitHubConnectorTests
+public class FingerprintTests
 {
     [Fact]
     public void Fingerprint_SameFinding_ReturnsSameHash()
@@ -75,5 +75,4 @@ public class GitHubConnectorTests
 
         Assert.Equal(Finding.Fingerprint(a), Finding.Fingerprint(b));
     }
-
 }

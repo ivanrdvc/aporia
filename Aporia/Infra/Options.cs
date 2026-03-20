@@ -5,6 +5,7 @@ public class AporiaOptions
     public const string SectionName = "Aporia";
     public bool EnableIncrementalReviews { get; init; }
     public bool EnableCodeGraph { get; init; } = true;
+    public bool EnablePostComments { get; init; } = true;
     public bool EnableChat { get; init; }
     public bool EnableWorkItems { get; init; }
 }

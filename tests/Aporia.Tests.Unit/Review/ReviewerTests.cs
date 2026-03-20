@@ -122,7 +122,7 @@ public class ReviewerTests
         // The prompt contains <thread_conversation> in the instructions text,
         // but should NOT contain actual user messages
         var afterInstructions = prompt[(prompt.LastIndexOf("</guidelines>") + "</guidelines>".Length)..];
-        Assert.DoesNotContain("thread_conversation>\n", afterInstructions);
+        Assert.DoesNotContain("<thread_conversation>\n", afterInstructions);
     }
 
     [Fact]

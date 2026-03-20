@@ -11,32 +11,30 @@ namespace Aporia.Infra.Cosmos;
 /// </summary>
 public interface IReviewStore
 {
-    Task SaveAsync(string repositoryId, int pullRequestId, string? cursor,
-                   ReviewStatus status, int findingsCount,
-                   string? conversationId);
+    Task SaveAsync(ReviewRequest req, Diff diff, ReviewStatus status, ReviewResult? result = null);
 }
 
 public class ReviewStore(CosmosDb db) : IReviewStore
 {
     private readonly Container _container = db.Container(CosmosOptions.ReviewsContainer);
 
-    public async Task SaveAsync(string repositoryId, int pullRequestId, string? cursor,
-                                ReviewStatus status, int findingsCount,
-                                string? conversationId)
+    public async Task SaveAsync(ReviewRequest req, Diff diff, ReviewStatus status, ReviewResult? result = null)
     {
         var review = new ReviewEvent
         {
-            Id = ToId(repositoryId, pullRequestId, cursor),
-            RepositoryId = repositoryId,
-            PullRequestId = pullRequestId,
-            Cursor = cursor,
+            Id = ToId(req.RepositoryId, req.PullRequestId, diff.Cursor),
+            RepositoryId = req.RepositoryId,
+            PullRequestId = req.PullRequestId,
+            Cursor = diff.Cursor,
             Status = status,
-            FindingsCount = findingsCount,
-            ConversationId = conversationId,
+            FindingsCount = result?.Findings.Count ?? 0,
+            ConversationId = req.ConversationId,
+            Findings = result?.Findings,
+            Summary = result?.Summary,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        await _container.UpsertItemAsync(review, new PartitionKey(repositoryId));
+        await _container.UpsertItemAsync(review, new PartitionKey(req.RepositoryId));
     }
 
     private static string ToId(string repositoryId, int pullRequestId, string? cursor)
@@ -66,6 +64,12 @@ public class ReviewEvent
 
     [JsonProperty("conversationId")]
     public string? ConversationId { get; init; }
+
+    [JsonProperty("findings")]
+    public List<Finding>? Findings { get; init; }
+
+    [JsonProperty("summary")]
+    public string? Summary { get; init; }
 
     [JsonProperty("createdAt")]
     public DateTimeOffset CreatedAt { get; init; }
