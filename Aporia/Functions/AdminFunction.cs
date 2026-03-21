@@ -39,7 +39,7 @@ public class AdminFunction(IRepoStore repoStore, IOptions<AporiaOptions> options
 
         var repo = new Repository
         {
-            Id = body.RepositoryId,
+            Id = body.RepositoryId.Replace("/", "__"),
             Provider = provider,
             Enabled = true,
             Name = body.Name,
@@ -48,7 +48,7 @@ public class AdminFunction(IRepoStore repoStore, IOptions<AporiaOptions> options
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        var existing = await repoStore.GetAsync(body.RepositoryId);
+        var existing = await repoStore.GetAsync(repo.Id);
         await repoStore.SaveAsync(repo);
 
         var branch = body.DefaultBranch ?? "refs/heads/main";

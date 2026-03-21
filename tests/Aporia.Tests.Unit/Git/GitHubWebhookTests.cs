@@ -23,7 +23,7 @@ public class GitHubWebhookTests
         Assert.NotNull(result);
         Assert.Equal(GitProvider.GitHub, result.Provider);
         Assert.Equal("octocat", result.Project);
-        Assert.Equal("octocat/my-repo", result.RepositoryId);
+        Assert.Equal("octocat__my-repo", result.RepositoryId);
         Assert.Equal("my-repo", result.RepositoryName);
         Assert.Equal(42, result.PullRequestId);
         Assert.Equal("feature-branch", result.SourceBranch);

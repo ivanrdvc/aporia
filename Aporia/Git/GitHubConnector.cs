@@ -438,7 +438,7 @@ public partial class GitHubConnector(
 
     private static (string Owner, string Repo) ParseRepoId(string repositoryId)
     {
-        var parts = repositoryId.Split('/');
+        var parts = repositoryId.Split("__");
         return (parts[0], parts[1]);
     }
 

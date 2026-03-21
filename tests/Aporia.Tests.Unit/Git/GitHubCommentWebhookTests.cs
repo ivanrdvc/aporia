@@ -14,7 +14,7 @@ public class GitHubCommentWebhookTests
         Assert.NotNull(result);
         Assert.Equal(GitProvider.GitHub, result.Review.Provider);
         Assert.Equal("octocat", result.Review.Project);
-        Assert.Equal("octocat/hello-world", result.Review.RepositoryId);
+        Assert.Equal("octocat__hello-world", result.Review.RepositoryId);
         Assert.Equal("hello-world", result.Review.RepositoryName);
         Assert.Equal(42, result.Review.PullRequestId);
         Assert.Equal(100, result.ThreadId);

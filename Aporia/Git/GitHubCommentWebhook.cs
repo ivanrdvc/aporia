@@ -41,7 +41,7 @@ public record GitHubCommentWebhook(
             Review: new ReviewRequest(
                 Provider: GitProvider.GitHub,
                 Project: Repository.Owner.Login,
-                RepositoryId: Repository.FullName,
+                RepositoryId: Repository.FullName.Replace("/", "__"),
                 RepositoryName: Repository.Name,
                 PullRequestId: prNumber,
                 SourceBranch: head,
