@@ -107,13 +107,7 @@ public class ReviewTests(
             return config;
 
         Output.WriteLine($"Strategy override: {strategyOverride}");
-        return new ProjectConfig
-        {
-            Review = new ReviewConfig { Strategy = strategyOverride, MaxComments = config.Review.MaxComments },
-            Files = config.Files,
-            Rules = config.Rules,
-            Context = config.Context
-        };
+        return config.WithStrategy(strategyOverride);
     }
 
     [Fact]

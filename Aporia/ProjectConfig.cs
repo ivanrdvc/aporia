@@ -27,6 +27,14 @@ public class ProjectConfig
         }
     };
 
+    public ProjectConfig WithStrategy(string strategy) => new()
+    {
+        Review = new ReviewConfig { Strategy = strategy, MaxComments = Review.MaxComments },
+        Files = Files,
+        Rules = Rules,
+        Context = Context
+    };
+
     public static ProjectConfig Parse(string? raw)
     {
         var o = raw.TryParseJson<ProjectConfig>(JsonOptions);

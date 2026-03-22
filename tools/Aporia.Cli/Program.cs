@@ -152,18 +152,15 @@ var reviewer = scope.ServiceProvider.GetRequiredService<Reviewer>();
 var config = await git.GetConfig(req);
 
 if (strategyOverride is not null)
-    config = new ProjectConfig
-    {
-        Review = new ReviewConfig { Strategy = strategyOverride, MaxComments = config.Review.MaxComments },
-        Files = config.Files,
-        Rules = config.Rules,
-        Context = config.Context
-    };
+    config = config.WithStrategy(strategyOverride);
 
 Console.WriteLine($"  Strategy: {config.Review.Strategy ?? "core"} | MaxComments: {config.Review.MaxComments ?? 5}");
 Console.WriteLine();
 
-var diff = await git.GetDiff(req, config);
+var diffTask = git.GetDiff(req, config);
+var prContextTask = git.GetPrContext(req);
+
+var diff = await diffTask;
 if (diff.Files.Count == 0)
 {
     Console.WriteLine("No files changed — nothing to review.");
@@ -176,7 +173,7 @@ foreach (var file in diff.Files)
     Console.WriteLine($"  [{file.Kind}] {file.Path}");
 Console.WriteLine();
 
-var prContext = await git.GetPrContext(req);
+var prContext = await prContextTask;
 var result = await reviewer.Review(req, diff, config, prContext);
 
 // ---------------------------------------------------------------------------
