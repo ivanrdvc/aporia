@@ -121,7 +121,7 @@ For GitHub, point the App's webhook URL to the tunnel and subscribe to the neede
 2. In your GitHub App settings (**General** tab), set Webhook URL to
    `{tunnel-url}/api/webhook/github?code=<function-key>`
 3. Verify event subscriptions (**Permissions & events** tab → Subscribe to events):
-   Pull request, Pull request review comment, Pull request review thread, Issue comment.
+   Pull request, Pull request review comment, Issue comment.
    These are **not checked by default** — you must enable them manually after setting
    permissions.
 4. `func start` — PR events, replies on Aporia threads, and `@aporia` mentions will flow

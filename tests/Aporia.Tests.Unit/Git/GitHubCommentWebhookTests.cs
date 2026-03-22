@@ -21,6 +21,8 @@ public class GitHubCommentWebhookTests
         Assert.Equal(200, result.CommentId);
         Assert.Equal("I disagree with this", result.UserMessage);
         Assert.Equal(ChatCommentKind.ReviewComment, result.CommentKind);
+        Assert.Equal("feature", result.Review.SourceBranch);
+        Assert.Equal("main", result.Review.TargetBranch);
     }
 
     [Fact]
@@ -47,6 +49,8 @@ public class GitHubCommentWebhookTests
         Assert.Equal(300, result.ThreadId);
         Assert.Equal(300, result.CommentId);
         Assert.Equal("@aporia what do you think?", result.UserMessage);
+        Assert.Equal("", result.Review.SourceBranch);
+        Assert.Equal("", result.Review.TargetBranch);
     }
 
     [Fact]
@@ -67,6 +71,15 @@ public class GitHubCommentWebhookTests
             Issue: new GitHubIssueRef(10, PullRequest: null));
 
         Assert.Null(webhook.ToChatRequest("issue_comment"));
+    }
+
+    [Fact]
+    public void ToChatRequest_BotAuthor_ReturnsNull()
+    {
+        var webhook = CreateReviewCommentWebhook("I have thoughts on this",
+            user: new GitHubCommentUser("Bot"));
+
+        Assert.Null(webhook.ToChatRequest("pull_request_review_comment"));
     }
 
     [Fact]
@@ -127,9 +140,10 @@ public class GitHubCommentWebhookTests
         string? body,
         long? inReplyToId = null,
         string action = "created",
-        long? installationId = null) => new(
+        long? installationId = null,
+        GitHubCommentUser? user = null) => new(
         action,
-        new GitHubCommentPayload(200, body, inReplyToId),
+        new GitHubCommentPayload(200, body, inReplyToId, user),
         CreateRepo(),
         Installation: installationId is { } id ? new GitHubInstallation(id) : null,
         PullRequest: new GitHubPullRequest(42, false, new GitHubRef("feature", "abc"), new GitHubRef("main", "def")));

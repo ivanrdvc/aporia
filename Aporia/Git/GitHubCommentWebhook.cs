@@ -24,6 +24,9 @@ public record GitHubCommentWebhook(
         if (Comment.Body.StartsWith(ChatRequest.MarkerPrefix))
             return null;
 
+        if (Comment.User?.Type is "Bot")
+            return null;
+
         var (prNumber, head, @base, kind) = eventType switch
         {
             "pull_request_review_comment" when PullRequest is not null =>
@@ -57,7 +60,10 @@ public record GitHubCommentWebhook(
 public record GitHubCommentPayload(
     long Id,
     string? Body,
-    [property: JsonPropertyName("in_reply_to_id")] long? InReplyToId = null);
+    [property: JsonPropertyName("in_reply_to_id")] long? InReplyToId = null,
+    GitHubCommentUser? User = null);
+
+public record GitHubCommentUser(string? Type);
 
 public record GitHubIssueRef(
     int Number,

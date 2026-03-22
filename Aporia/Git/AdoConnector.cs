@@ -364,6 +364,13 @@ public class AdoConnector(
         }
     }
 
+    public async Task<(string Source, string Target)?> GetPrBranches(ReviewRequest req)
+    {
+        var git = GetGitClient(req.Organization);
+        var pr = await git.GetPullRequestByIdAsync(req.PullRequestId, req.Project);
+        return pr is not null ? (pr.SourceRefName, pr.TargetRefName) : null;
+    }
+
     public async Task<ChatThreadContext?> GetChatThreadContext(ChatRequest req)
     {
         var git = GetGitClient(req.Review.Organization);
@@ -401,6 +408,12 @@ public class AdoConnector(
             .Where(c => c.Length > 0)
             .ToList();
 
+        // Circuit breaker: cap Aporia replies per thread to prevent runaway loops
+        const int maxAporiaReplies = 10;
+        var aporiaReplies = messages.Count(m => m.StartsWith(ChatRequest.ChatMarker));
+        if (aporiaReplies >= maxAporiaReplies)
+            return null;
+
         return new ChatThreadContext(thread.Id, fingerprint, filePath, startLine, messages);
     }
 
@@ -414,7 +427,7 @@ public class AdoConnector(
             CommentType = CommentType.Text
         };
 
-        await git.CreateCommentAsync(comment, req.Review.Project, req.Review.RepositoryId, req.Review.PullRequestId, (int)req.ThreadId);
+        await git.CreateCommentAsync(comment, req.Review.Project, req.Review.RepositoryId, req.Review.PullRequestId, checked((int)req.ThreadId));
     }
 
     public Task<CloneCredentials> GetCloneCredentials(ReviewRequest req)

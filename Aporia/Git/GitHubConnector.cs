@@ -355,6 +355,14 @@ public partial class GitHubConnector(
         }
     }
 
+    public async Task<(string Source, string Target)?> GetPrBranches(ReviewRequest req)
+    {
+        var (owner, repo) = ParseRepoId(req.RepositoryId);
+        var pr = await GetFromJsonAsync<GitHubPrResponse>(req,
+            $"repos/{owner}/{repo}/pulls/{req.PullRequestId}");
+        return pr is not null ? (pr.Head.Ref, pr.Base.Ref) : null;
+    }
+
     public async Task<ChatThreadContext?> GetChatThreadContext(ChatRequest req)
     {
         var (owner, repo) = ParseRepoId(req.Review.RepositoryId);
@@ -383,16 +391,23 @@ public partial class GitHubConnector(
 
         var fingerprint = fpMatch is { Success: true } m ? m.Groups[1].Value : null;
 
-        // Collect thread messages (root + replies sharing the same root)
+        // Collect thread messages: root (already fetched) + direct replies
         var messages = new List<string>();
-        await foreach (var comment in Paginate<GitHubReviewComment>(req.Review,
-            $"repos/{owner}/{repo}/pulls/{prNumber}/comments"))
+        if (root.Body is { Length: > 0 })
+            messages.Add(root.Body);
+
+        await foreach (var reply in Paginate<GitHubReviewComment>(req.Review,
+            $"repos/{owner}/{repo}/pulls/comments/{rootId}/replies"))
         {
-            var isRoot = comment.Id == rootId;
-            var isReply = comment.InReplyToId == rootId;
-            if ((isRoot || isReply) && comment.Body is { Length: > 0 })
-                messages.Add(comment.Body);
+            if (reply.Body is { Length: > 0 })
+                messages.Add(reply.Body);
         }
+
+        // Circuit breaker: cap Aporia replies per thread to prevent runaway loops
+        const int maxAporiaReplies = 10;
+        var aporiaReplies = messages.Count(m => m.StartsWith(ChatRequest.ChatMarker));
+        if (aporiaReplies >= maxAporiaReplies)
+            return null;
 
         return new ChatThreadContext(rootId, fingerprint, root.Path, root.Line, messages);
     }
