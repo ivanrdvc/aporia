@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 using Aporia.Infra.Telemetry;
@@ -12,12 +13,24 @@ namespace Aporia.Cli;
 
 internal static class CliExtensions
 {
-    /// <summary>
-    /// Adds OpenTelemetry tracing and metrics without Azure Functions or Azure Monitor dependencies.
-    /// Exports to OTLP if OTEL_EXPORTER_OTLP_ENDPOINT is set, otherwise just logs locally.
-    /// </summary>
+    // UseOtlpExporter() reads config from env vars. Azure Functions surfaces appsettings as env
+    // vars automatically; generic host does not, so we bridge the OTEL keys here.
+    private static readonly string[] OtelEnvKeys =
+    [
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_PROTOCOL",
+        "OTEL_EXPORTER_OTLP_HEADERS",
+        "OTEL_SERVICE_NAME",
+    ];
+
     public static void AddCliTelemetry(this IServiceCollection services, IConfiguration configuration)
     {
+        foreach (var key in OtelEnvKeys)
+        {
+            if (configuration[key] is { } value)
+                Environment.SetEnvironmentVariable(key, value);
+        }
+
         services.AddLogging(logging => logging.AddOpenTelemetry(otel =>
         {
             otel.IncludeFormattedMessage = true;
@@ -26,6 +39,7 @@ internal static class CliExtensions
 
         var otel = services
             .AddOpenTelemetry()
+            .ConfigureResource(r => r.AddService(configuration["OTEL_SERVICE_NAME"] ?? "Aporia.Cli"))
             .WithTracing(tracing => tracing
                 .AddSource(Telemetry.ServiceName)
                 .AddSource("Experimental.Microsoft.Agents.AI")

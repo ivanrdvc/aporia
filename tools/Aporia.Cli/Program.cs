@@ -35,6 +35,8 @@ for (var i = 0; i < args.Length; i++)
 {
     switch (args[i])
     {
+        case "review":
+            break;
         case "--post":
             post = true;
             break;
@@ -123,7 +125,7 @@ builder.Services.AddSingleton<IPrStateStore, NullPrStateStore>();
 builder.Services.AddSingleton<ChatHistoryProvider>(new FileSessionProvider(sessionDir));
 builder.Services.AddCliTelemetry(builder.Configuration);
 
-var host = builder.Build();
+using var host = builder.Build();
 await host.StartAsync();
 
 // ---------------------------------------------------------------------------
