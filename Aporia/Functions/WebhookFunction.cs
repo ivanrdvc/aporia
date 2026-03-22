@@ -30,15 +30,11 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
     {
         var webhook = await req.ReadFromJsonAsync<AdoWebhook>();
 
-        if (webhook?.ToRequest() is not { } request)
+        if (webhook?.ToRequest() is not { } request
+            || await GetOrganization(request.RepositoryId) is not { } org)
             return new WebhookResponse();
 
-        var repo = await repoStore.GetAsync(request.RepositoryId);
-
-        if (repo is not { Enabled: true, Organization: not null })
-            return new WebhookResponse();
-
-        request = request with { Organization = repo.Organization };
+        request = request with { Organization = org };
 
         return new WebhookResponse { QueueMessage = JsonSerializer.Serialize(request) };
     }
@@ -46,12 +42,14 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
     [Function("WebhookGitHub")]
     [OpenApiOperation(operationId: "WebhookGitHub", tags: ["Webhooks"],
         Summary = "GitHub webhook",
-        Description = "Receives pull_request events from GitHub and enqueues a review.")]
-    [OpenApiResponseWithoutBody(HttpStatusCode.OK, Description = "Accepted (review enqueued or ignored)")]
-    public async Task<WebhookResponse> RunGitHub([HttpTrigger(AuthorizationLevel.Function, "post", Route = "webhook/github")] HttpRequest req)
+        Description = "Receives pull_request, comment, and issue_comment events from GitHub.")]
+    [OpenApiResponseWithoutBody(HttpStatusCode.OK, Description = "Accepted (enqueued or ignored)")]
+    public async Task<GitHubWebhookResponse> RunGitHub([HttpTrigger(AuthorizationLevel.Function, "post", Route = "webhook/github")] HttpRequest req)
     {
-        if (!req.Headers.TryGetValue("X-GitHub-Event", out var eventHeader) || eventHeader != "pull_request")
-            return new WebhookResponse();
+        if (!req.Headers.TryGetValue("X-GitHub-Event", out var eventHeader))
+            return new GitHubWebhookResponse();
+
+        var eventType = eventHeader.ToString();
 
         req.EnableBuffering();
         var body = await new StreamReader(req.Body).ReadToEndAsync();
@@ -65,7 +63,7 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
                 || signatureHeader.FirstOrDefault() is not { } sig
                 || !sig.StartsWith("sha256="))
             {
-                return new WebhookResponse { Result = new UnauthorizedResult() };
+                return new GitHubWebhookResponse { Result = new UnauthorizedResult() };
             }
 
             var expected = Convert.ToHexStringLower(
@@ -75,23 +73,45 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
                     Encoding.UTF8.GetBytes(expected),
                     Encoding.UTF8.GetBytes(sig["sha256=".Length..])))
             {
-                return new WebhookResponse { Result = new UnauthorizedResult() };
+                return new GitHubWebhookResponse { Result = new UnauthorizedResult() };
             }
         }
 
+        return eventType switch
+        {
+            "pull_request" => await HandlePullRequest(body),
+            "pull_request_review_comment" or "issue_comment" => await HandleComment(body, eventType),
+            _ => new GitHubWebhookResponse()
+        };
+    }
+
+    private async Task<GitHubWebhookResponse> HandlePullRequest(string body)
+    {
         var webhook = JsonSerializer.Deserialize<GitHubWebhook>(body, JsonSerializerOptions.Web);
 
-        if (webhook?.ToRequest() is not { } request)
-            return new WebhookResponse();
+        if (webhook?.ToRequest() is not { } request
+            || await GetOrganization(request.RepositoryId) is not { } org)
+            return new GitHubWebhookResponse();
 
-        var repo = await repoStore.GetAsync(request.RepositoryId);
+        request = request with { Organization = org };
 
-        if (repo is not { Enabled: true, Organization: not null })
-            return new WebhookResponse();
+        return new GitHubWebhookResponse { ReviewQueueMessage = JsonSerializer.Serialize(request) };
+    }
 
-        request = request with { Organization = repo.Organization };
+    private async Task<GitHubWebhookResponse> HandleComment(string body, string eventType)
+    {
+        if (!aporiaOptions.Value.EnableChat)
+            return new GitHubWebhookResponse();
 
-        return new WebhookResponse { QueueMessage = JsonSerializer.Serialize(request) };
+        var webhook = JsonSerializer.Deserialize<GitHubCommentWebhook>(body, JsonSerializerOptions.Web);
+
+        if (webhook?.ToChatRequest(eventType) is not { } chatRequest
+            || await GetOrganization(chatRequest.Review.RepositoryId) is not { } org)
+            return new GitHubWebhookResponse();
+
+        chatRequest = chatRequest with { Review = chatRequest.Review with { Organization = org } };
+
+        return new GitHubWebhookResponse { ChatQueueMessage = JsonSerializer.Serialize(chatRequest) };
     }
 
     [Function("WebhookAdoComment")]
@@ -102,17 +122,19 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
 
         var webhook = await req.ReadFromJsonAsync<AdoCommentWebhook>(JsonSerializerOptions.Web);
 
-        if (webhook?.ToChatRequest() is not { } chatRequest)
+        if (webhook?.ToChatRequest() is not { } chatRequest
+            || await GetOrganization(chatRequest.Review.RepositoryId) is not { } org)
             return new ChatWebhookResponse();
 
-        var repo = await repoStore.GetAsync(chatRequest.Review.RepositoryId);
-
-        if (repo is not { Enabled: true, Organization: not null })
-            return new ChatWebhookResponse();
-
-        chatRequest = chatRequest with { Review = chatRequest.Review with { Organization = repo.Organization } };
+        chatRequest = chatRequest with { Review = chatRequest.Review with { Organization = org } };
 
         return new ChatWebhookResponse { QueueMessage = JsonSerializer.Serialize(chatRequest) };
+    }
+
+    private async Task<string?> GetOrganization(string repoId)
+    {
+        var repo = await repoStore.GetAsync(repoId);
+        return repo is { Enabled: true, Organization: not null } ? repo.Organization : null;
     }
 }
 
@@ -123,6 +145,18 @@ public class ChatWebhookResponse
 
     [QueueOutput("chat-queue")]
     public string? QueueMessage { get; set; }
+}
+
+public class GitHubWebhookResponse
+{
+    [HttpResult]
+    public IActionResult Result { get; set; } = new OkResult();
+
+    [QueueOutput("review-queue")]
+    public string? ReviewQueueMessage { get; set; }
+
+    [QueueOutput("chat-queue")]
+    public string? ChatQueueMessage { get; set; }
 }
 
 public class WebhookResponse

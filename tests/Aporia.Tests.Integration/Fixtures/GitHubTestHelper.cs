@@ -76,20 +76,61 @@ internal class GitHubTestHelper : ITestHelper, IDisposable
         }
     }
 
-    public Task<(int ThreadId, int CommentId)> PostCommentOnAporiaThread(ReviewRequest req, string message) =>
-        throw new NotSupportedException("GitHub chat testing is not yet implemented.");
+    public async Task<(long ThreadId, long CommentId)> PostCommentOnAporiaThread(ReviewRequest req, string message)
+    {
+        var (owner, repo) = ParseRepoId(req.RepositoryId);
+        var comments = await _client.GetFromJsonAsync<List<ReviewComment>>(
+            $"repos/{owner}/{repo}/pulls/{req.PullRequestId}/comments?per_page=100", JsonSerializerOptions.Web);
 
-    public Task<(int ThreadId, int CommentId, string Message)> FindLatestHumanComment(ReviewRequest req) =>
-        throw new NotSupportedException("GitHub chat testing is not yet implemented.");
+        var root = comments?.FirstOrDefault(c => c.Body?.Contains("<!-- aporia:fp:") == true && c.InReplyToId is null)
+                   ?? throw new InvalidOperationException("No Aporia review comment found to reply to");
+
+        var reply = await _client.PostAsJsonAsync(
+            $"repos/{owner}/{repo}/pulls/{req.PullRequestId}/comments/{root.Id}/replies",
+            new { body = message });
+        reply.EnsureSuccessStatusCode();
+
+        var posted = await reply.Content.ReadFromJsonAsync<ReviewComment>(JsonSerializerOptions.Web);
+        return (root.Id, posted!.Id);
+    }
+
+    public async Task<(long ThreadId, long CommentId, string Message)> FindLatestHumanComment(ReviewRequest req)
+    {
+        var (owner, repo) = ParseRepoId(req.RepositoryId);
+        var comments = await _client.GetFromJsonAsync<List<ReviewComment>>(
+            $"repos/{owner}/{repo}/pulls/{req.PullRequestId}/comments?per_page=100", JsonSerializerOptions.Web);
+
+        // Find human replies (non-marker) on Aporia threads
+        var aporiaRootIds = comments?
+            .Where(c => c.Body?.Contains("<!-- aporia:fp:") == true && c.InReplyToId is null)
+            .Select(c => c.Id)
+            .ToHashSet() ?? [];
+
+        var human = comments?
+            .Where(c => c.InReplyToId is not null && aporiaRootIds.Contains(c.InReplyToId.Value))
+            .Where(c => c.Body is not null && !c.Body.StartsWith(ChatRequest.MarkerPrefix))
+            .OrderByDescending(c => c.Id)
+            .FirstOrDefault();
+
+        if (human is not null)
+            return (human.InReplyToId!.Value, human.Id, human.Body!);
+
+        throw new InvalidOperationException("No human comment found on any Aporia thread");
+    }
 
     private static (string Owner, string Repo) ParseRepoId(string repositoryId)
     {
-        var parts = repositoryId.Split('/');
+        var parts = repositoryId.Split("__");
         return (parts[0], parts[1]);
     }
 
     public void Dispose() => _client.Dispose();
 
     private record Review(long Id, string? Body, string? State);
-    private record ReviewComment(long Id, string? Body, string? Path, int? Line);
+    private record ReviewComment(
+        long Id,
+        string? Body,
+        string? Path,
+        int? Line,
+        [property: System.Text.Json.Serialization.JsonPropertyName("in_reply_to_id")] long? InReplyToId = null);
 }

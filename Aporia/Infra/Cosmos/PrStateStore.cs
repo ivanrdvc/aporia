@@ -23,11 +23,10 @@ public class PrStateStore(CosmosDb db) : IPrStateStore
 
     public async Task<PrState?> GetAsync(string repositoryId, int pullRequestId)
     {
+        var id = ToId(repositoryId, pullRequestId);
         try
         {
-            return (await _container.ReadItemAsync<PrState>(
-                ToId(repositoryId, pullRequestId),
-                new PartitionKey(repositoryId))).Resource;
+            return (await _container.ReadItemAsync<PrState>(id, new PartitionKey(repositoryId))).Resource;
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {

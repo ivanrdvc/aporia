@@ -43,13 +43,14 @@ public class ChatTests(
         var (threadId, commentId) = await TestHelper.PostCommentOnAporiaThread(TestEvent, "Why did you flag this? Can you explain?");
         Output.WriteLine($"Posted test comment: thread {threadId}, comment {commentId}");
 
-        var threadContext = await Git.GetChatThreadContext(TestEvent, threadId, commentId);
+        var chatReq = new ChatRequest(TestEvent, threadId, commentId, "Why did you flag this? Can you explain?");
+        var threadContext = await Git.GetChatThreadContext(chatReq);
         Assert.NotNull(threadContext);
 
-        var reply = await Reviewer.Chat(TestEvent, Git, threadContext, "Why did you flag this? Can you explain?");
+        var reply = await Reviewer.Chat(TestEvent, Git, threadContext, chatReq.UserMessage);
         Output.WriteLine($"Chat reply ({reply.Length} chars):\n{reply}");
 
-        await Git.PostChatReply(TestEvent, threadContext.ThreadId, reply);
+        await Git.PostChatReply(chatReq, reply);
         Output.WriteLine("Reply posted to thread");
 
         await PrintThreads(TestEvent);
@@ -67,14 +68,14 @@ public class ChatTests(
         var configSvc = Services.GetRequiredService<IConfiguration>();
         var explicitCommentId = configSvc.GetValue<int?>("TestTarget:CommentId");
 
-        int threadId;
-        int commentId;
+        long threadId;
+        long commentId;
         string userMessage;
 
         if (explicitCommentId is > 0)
         {
             commentId = explicitCommentId.Value;
-            threadId = configSvc.GetValue<int?>("TestTarget:ThreadId")
+            threadId = configSvc.GetValue<long?>("TestTarget:ThreadId")
                        ?? throw new InvalidOperationException("TestTarget:ThreadId is required when TestTarget:CommentId is set");
             Output.WriteLine($"Using explicit comment ID: {commentId}, thread: {threadId}");
             userMessage = ""; // will be filled from thread context
@@ -86,7 +87,8 @@ public class ChatTests(
             Output.WriteLine($"Auto-detected: thread {threadId}, comment {commentId}");
         }
 
-        var threadContext = await Git.GetChatThreadContext(TestEvent, threadId, commentId);
+        var chatReq = new ChatRequest(TestEvent, threadId, commentId, userMessage);
+        var threadContext = await Git.GetChatThreadContext(chatReq);
         Assert.NotNull(threadContext);
         Output.WriteLine($"Thread: {threadContext.ThreadId}, file: {threadContext.FilePath}, fingerprint: {threadContext.Fingerprint}");
 
@@ -99,7 +101,7 @@ public class ChatTests(
         var reply = await Reviewer.Chat(TestEvent, Git, threadContext, userMessage);
         Output.WriteLine($"Chat reply ({reply.Length} chars):\n{reply}");
 
-        await Git.PostChatReply(TestEvent, threadContext.ThreadId, reply);
+        await Git.PostChatReply(chatReq, reply);
         Output.WriteLine("Reply posted to thread");
 
         await PrintThreads(TestEvent);

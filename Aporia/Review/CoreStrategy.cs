@@ -31,7 +31,7 @@ public class CoreStrategy(
         var git = sp.GetRequiredKeyedService<IGitConnector>(req.Provider);
         var prompt = Prompts.BuildReviewPrompt(diff);
         var tools = new ReviewerTools(git, req, diff, codeGraph);
-        var exploreTool = GuardedExploreTool.Create(explorerClient, tools, sessionProvider, logger);
+        var exploreTool = GuardedExploreTool.Create(explorerClient, tools, codeGraph, sessionProvider, logger);
 
         var reviewer = reviewerClient
             .AsBuilder()
@@ -47,13 +47,7 @@ public class CoreStrategy(
                 ChatOptions = new ChatOptions
                 {
                     Instructions = Prompts.ReviewerInstructions,
-                    Tools = [
-                        AIFunctionFactory.Create(tools.FetchFile),
-                        AIFunctionFactory.Create(tools.ListDirectory),
-                        AIFunctionFactory.Create(tools.SearchCode),
-                        AIFunctionFactory.Create(tools.QueryCodeGraph),
-                        exploreTool,
-                    ],
+                    Tools = BuildTools(tools, exploreTool, codeGraph),
                     AllowMultipleToolCalls = true,
                     ResponseFormat = ChatResponseFormat.ForJsonSchema<ReviewResult>(),
                     Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium },
@@ -78,6 +72,21 @@ public class CoreStrategy(
             ?? new([], "Review completed but failed to parse structured output.");
     }
 
+    private static List<AITool> BuildTools(ReviewerTools tools, AITool? exploreTool = null, CodeGraphQuery? codeGraph = null)
+    {
+        var list = new List<AITool>
+        {
+            AIFunctionFactory.Create(tools.FetchFile),
+            AIFunctionFactory.Create(tools.ListDirectory),
+            AIFunctionFactory.Create(tools.SearchCode),
+        };
+        if (codeGraph is not null)
+            list.Add(AIFunctionFactory.Create(tools.QueryCodeGraph));
+        if (exploreTool is not null)
+            list.Add(exploreTool);
+        return list;
+    }
+
     private class GuardedExploreTool : DelegatingAIFunction
     {
         private readonly SemaphoreSlim _concurrency = new(MaxConcurrentExplorations);
@@ -100,6 +109,7 @@ public class CoreStrategy(
         public static GuardedExploreTool Create(
             IChatClient explorerClient,
             ReviewerTools tools,
+            CodeGraphQuery? codeGraph,
             ChatHistoryProvider sessionProvider,
             ILogger logger)
         {
@@ -117,13 +127,7 @@ public class CoreStrategy(
                     ChatOptions = new ChatOptions
                     {
                         Instructions = Prompts.ExplorerInstructions,
-                        Tools =
-                        [
-                            AIFunctionFactory.Create(tools.FetchFile),
-                            AIFunctionFactory.Create(tools.ListDirectory),
-                            AIFunctionFactory.Create(tools.SearchCode),
-                            AIFunctionFactory.Create(tools.QueryCodeGraph),
-                        ],
+                        Tools = BuildTools(tools, codeGraph: codeGraph),
                         ResponseFormat = ChatResponseFormat.ForJsonSchema<ExplorationResult>(),
                         AdditionalProperties = new() { ["strict"] = true }
                     },

@@ -364,19 +364,26 @@ public class AdoConnector(
         }
     }
 
-    public async Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
+    public async Task<(string Source, string Target)?> GetPrBranches(ReviewRequest req)
     {
         var git = GetGitClient(req.Organization);
-        var threads = await git.GetThreadsAsync(
-            project: req.Project,
-            repositoryId: req.RepositoryId,
-            pullRequestId: req.PullRequestId);
+        var pr = await git.GetPullRequestByIdAsync(req.PullRequestId, req.Project);
+        return pr is not null ? (pr.SourceRefName, pr.TargetRefName) : null;
+    }
 
-        var thread = threads.FirstOrDefault(t => t.Id == threadId);
+    public async Task<ChatThreadContext?> GetChatThreadContext(ChatRequest req)
+    {
+        var git = GetGitClient(req.Review.Organization);
+        var threads = await git.GetThreadsAsync(
+            project: req.Review.Project,
+            repositoryId: req.Review.RepositoryId,
+            pullRequestId: req.Review.PullRequestId);
+
+        var thread = threads.FirstOrDefault(t => t.Id == req.ThreadId);
         if (thread is null || thread.IsDeleted || thread.Comments is null)
             return null;
 
-        var comment = thread.Comments.FirstOrDefault(c => c.Id == commentId);
+        var comment = thread.Comments.FirstOrDefault(c => c.Id == req.CommentId);
         if (comment?.Content is null)
             return null;
 
@@ -401,12 +408,18 @@ public class AdoConnector(
             .Where(c => c.Length > 0)
             .ToList();
 
+        // Circuit breaker: cap Aporia replies per thread to prevent runaway loops
+        const int maxAporiaReplies = 10;
+        var aporiaReplies = messages.Count(m => m.StartsWith(ChatRequest.ChatMarker));
+        if (aporiaReplies >= maxAporiaReplies)
+            return null;
+
         return new ChatThreadContext(thread.Id, fingerprint, filePath, startLine, messages);
     }
 
-    public async Task PostChatReply(ReviewRequest req, int threadId, string body)
+    public async Task PostChatReply(ChatRequest req, string body)
     {
-        var git = GetGitClient(req.Organization);
+        var git = GetGitClient(req.Review.Organization);
 
         var comment = new Comment
         {
@@ -414,7 +427,7 @@ public class AdoConnector(
             CommentType = CommentType.Text
         };
 
-        await git.CreateCommentAsync(comment, req.Project, req.RepositoryId, req.PullRequestId, threadId);
+        await git.CreateCommentAsync(comment, req.Review.Project, req.Review.RepositoryId, req.Review.PullRequestId, checked((int)req.ThreadId));
     }
 
     public Task<CloneCredentials> GetCloneCredentials(ReviewRequest req)

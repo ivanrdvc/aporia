@@ -75,6 +75,10 @@ Single database (`aporia`), one Cosmos account. All stores are singletons that t
 | `reviews` | `/repositoryId` | none | `ReviewStore` (`Infra/Cosmos/`) |
 | `sessions` | `/conversationId` | 180 days | `CosmosChatHistoryProvider` (MAF built-in) |
 
+GitHub repository IDs use `owner__repo` format (not `owner/repo`) because Cosmos
+`ReadItemAsync` treats `/` as a path separator in the document URI. The `/` → `__`
+replacement happens at the entry points (webhook `ToRequest`, admin registration).
+
 **repositories** — one document per registered repo. Gates webhooks (unregistered repos ignored). Holds provider, enabled flag, name, URL, and `lastReviewedAt` (denormalized from latest review).
 
 **pr-state** — one document per PR, keyed `{repositoryId}-pr-{pullRequestId}`. Tracks last reviewed iteration for incremental diffs. 90-day TTL since merged PRs don't need tracking.
@@ -110,3 +114,15 @@ ADO service hooks needed for local testing:
 
 Then `func start` — PR events and `@aporia` comments on any registered repo will flow through
 the local pipeline.
+
+For GitHub, point the App's webhook URL to the tunnel and subscribe to the needed events:
+
+1. `devtunnel host aporia` — same persistent URL
+2. In your GitHub App settings (**General** tab), set Webhook URL to
+   `{tunnel-url}/api/webhook/github?code=<function-key>`
+3. Verify event subscriptions (**Permissions & events** tab → Subscribe to events):
+   Pull request, Pull request review comment, Issue comment.
+   These are **not checked by default** — you must enable them manually after setting
+   permissions.
+4. `func start` — PR events, replies on Aporia threads, and `@aporia` mentions will flow
+   through the local pipeline. Restore the production URL when done.

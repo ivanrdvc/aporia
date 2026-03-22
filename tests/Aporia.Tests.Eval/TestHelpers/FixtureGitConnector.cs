@@ -44,10 +44,13 @@ public sealed class FixtureGitConnector(Dictionary<string, string> files) : IGit
     public Task<PrContext> GetPrContext(ReviewRequest req) =>
         Task.FromResult(new PrContext("Test PR", null, []));
 
-    public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId) =>
+    public Task<(string Source, string Target)?> GetPrBranches(ReviewRequest req) =>
+        Task.FromResult<(string Source, string Target)?>(("main", "main"));
+
+    public Task<ChatThreadContext?> GetChatThreadContext(ChatRequest req) =>
         Task.FromResult<ChatThreadContext?>(null);
 
-    public Task PostChatReply(ReviewRequest req, int threadId, string body) =>
+    public Task PostChatReply(ChatRequest req, string body) =>
         Task.CompletedTask;
 
     public Task<IReadOnlyList<SearchResult>> SearchCode(ReviewRequest req, string query)

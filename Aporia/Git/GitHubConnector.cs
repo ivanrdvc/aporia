@@ -355,11 +355,83 @@ public partial class GitHubConnector(
         }
     }
 
-    public Task<ChatThreadContext?> GetChatThreadContext(ReviewRequest req, int threadId, int commentId)
-        => Task.FromResult<ChatThreadContext?>(null);
+    public async Task<(string Source, string Target)?> GetPrBranches(ReviewRequest req)
+    {
+        var (owner, repo) = ParseRepoId(req.RepositoryId);
+        var pr = await GetFromJsonAsync<GitHubPrResponse>(req,
+            $"repos/{owner}/{repo}/pulls/{req.PullRequestId}");
+        return pr is not null ? (pr.Head.Ref, pr.Base.Ref) : null;
+    }
 
-    public Task PostChatReply(ReviewRequest req, int threadId, string body)
-        => Task.CompletedTask;
+    public async Task<ChatThreadContext?> GetChatThreadContext(ChatRequest req)
+    {
+        var (owner, repo) = ParseRepoId(req.Review.RepositoryId);
+
+        if (req.CommentKind is ChatCommentKind.IssueComment)
+        {
+            // Issue comments have no threading — return just the triggering message
+            return new ChatThreadContext(req.ThreadId, null, null, null, [req.UserMessage]);
+        }
+
+        // Review comment: fetch the root comment to get fingerprint/path/line,
+        // then collect the full thread from all PR comments
+        var rootId = req.ThreadId;
+        var root = await GetFromJsonAsync<GitHubReviewComment>(
+            req.Review, $"repos/{owner}/{repo}/pulls/comments/{rootId}");
+
+        if (root is null)
+            return null;
+
+        var fpMatch = root.Body is not null ? FingerprintRegex().Match(root.Body) : null;
+
+        // On non-Aporia threads, only respond if explicitly mentioned
+        if (fpMatch is not { Success: true } && !req.UserMessage.Contains("@aporia", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var fingerprint = fpMatch is { Success: true } m ? m.Groups[1].Value : null;
+
+        // Collect thread messages: root (already fetched) + direct replies
+        var messages = new List<string>();
+        if (root.Body is { Length: > 0 })
+            messages.Add(root.Body);
+
+        await foreach (var reply in Paginate<GitHubReviewComment>(req.Review,
+            $"repos/{owner}/{repo}/pulls/comments/{rootId}/replies"))
+        {
+            if (reply.Body is { Length: > 0 })
+                messages.Add(reply.Body);
+        }
+
+        // Circuit breaker: cap Aporia replies per thread to prevent runaway loops
+        const int maxAporiaReplies = 10;
+        var aporiaReplies = messages.Count(m => m.StartsWith(ChatRequest.ChatMarker));
+        if (aporiaReplies >= maxAporiaReplies)
+            return null;
+
+        return new ChatThreadContext(rootId, fingerprint, root.Path, root.Line, messages);
+    }
+
+    public async Task PostChatReply(ChatRequest req, string body)
+    {
+        var (owner, repo) = ParseRepoId(req.Review.RepositoryId);
+        var prNumber = req.Review.PullRequestId;
+        var markedBody = $"{ChatRequest.ChatMarker}\n{body}";
+
+        if (req.CommentKind is ChatCommentKind.IssueComment)
+        {
+            using var response = await SendAsync(req.Review, HttpMethod.Post,
+                $"repos/{owner}/{repo}/issues/{prNumber}/comments",
+                new { body = markedBody });
+            response.EnsureSuccessStatusCode();
+        }
+        else
+        {
+            using var response = await SendAsync(req.Review, HttpMethod.Post,
+                $"repos/{owner}/{repo}/pulls/{prNumber}/comments/{req.ThreadId}/replies",
+                new { body = markedBody });
+            response.EnsureSuccessStatusCode();
+        }
+    }
 
     private Task<HttpResponseMessage> SendAsync(ReviewRequest req, HttpMethod method, string url, object? body = null)
     {
@@ -380,7 +452,7 @@ public partial class GitHubConnector(
 
     private static (string Owner, string Repo) ParseRepoId(string repositoryId)
     {
-        var parts = repositoryId.Split('/');
+        var parts = repositoryId.Split("__");
         return (parts[0], parts[1]);
     }
 

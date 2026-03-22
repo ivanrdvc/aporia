@@ -44,7 +44,7 @@ internal static class Scenarios
     public static ReviewRequest GitHubMultiAgentCrossService => new(
         Provider: GitProvider.GitHub,
         Project: "",
-        RepositoryId: "ivanrdvc/eShop",
+        RepositoryId: "ivanrdvc__eShop",
         RepositoryName: "eShop",
         PullRequestId: 1,
         SourceBranch: "refs/heads/feature/order-tracking-notifications",

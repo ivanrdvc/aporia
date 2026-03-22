@@ -14,7 +14,7 @@ public record GitHubWebhook(
             ? new ReviewRequest(
                 Provider: GitProvider.GitHub,
                 Project: Repository.Owner.Login,
-                RepositoryId: Repository.FullName,
+                RepositoryId: Repository.FullName.Replace("/", "__"),
                 RepositoryName: Repository.Name,
                 PullRequestId: PullRequest.Number,
                 SourceBranch: PullRequest.Head.Ref,

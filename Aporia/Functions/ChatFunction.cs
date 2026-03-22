@@ -19,7 +19,20 @@ public class ChatFunction(
 
         var git = sp.GetRequiredKeyedService<IGitConnector>(req.Review.Provider);
 
-        var threadContext = await git.GetChatThreadContext(req.Review, req.ThreadId, req.CommentId);
+        // Issue comments don't carry branch info — resolve from the PR before tools need it
+        if (req.Review.SourceBranch is "")
+        {
+            var branches = await git.GetPrBranches(req.Review);
+            if (branches is null)
+            {
+                logger.LogWarning("Could not resolve branches for PR #{PrId}, skipping", req.Review.PullRequestId);
+                return;
+            }
+
+            req = req with { Review = req.Review with { SourceBranch = branches.Value.Source, TargetBranch = branches.Value.Target } };
+        }
+
+        var threadContext = await git.GetChatThreadContext(req);
 
         if (threadContext is null)
         {
@@ -28,7 +41,7 @@ public class ChatFunction(
         }
 
         var reply = await reviewer.Chat(req.Review, git, threadContext, req.UserMessage, ct);
-        await git.PostChatReply(req.Review, threadContext.ThreadId, reply);
+        await git.PostChatReply(req, reply);
 
         logger.LogInformation("Posted chat reply to thread {ThreadId} for PR #{PrId}", threadContext.ThreadId, req.Review.PullRequestId);
     }

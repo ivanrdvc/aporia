@@ -55,7 +55,7 @@ internal class AdoTestHelper(TestRepoOptions options, GitHttpClient gitClient) :
         }
     }
 
-    public async Task<(int ThreadId, int CommentId)> PostCommentOnAporiaThread(ReviewRequest req, string message)
+    public async Task<(long ThreadId, long CommentId)> PostCommentOnAporiaThread(ReviewRequest req, string message)
     {
         var threads = await GetAporiaThreads(req);
         var target = threads.FirstOrDefault(t => t.ThreadContext?.FilePath is not null)
@@ -67,7 +67,7 @@ internal class AdoTestHelper(TestRepoOptions options, GitHttpClient gitClient) :
         return (target.Id, posted.Id);
     }
 
-    public async Task<(int ThreadId, int CommentId, string Message)> FindLatestHumanComment(ReviewRequest req)
+    public async Task<(long ThreadId, long CommentId, string Message)> FindLatestHumanComment(ReviewRequest req)
     {
         var threads = await GetAporiaThreads(req);
         foreach (var thread in threads.OrderByDescending(t => t.Id))

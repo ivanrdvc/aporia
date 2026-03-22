@@ -77,11 +77,22 @@ public record ReviewResult(
     string Summary
 );
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ChatCommentKind
+{
+    [EnumMember(Value = "reviewComment")]
+    ReviewComment,
+
+    [EnumMember(Value = "issueComment")]
+    IssueComment
+}
+
 public record ChatRequest(
     ReviewRequest Review,
-    int ThreadId,
-    int CommentId,
-    string UserMessage
+    long ThreadId,
+    long CommentId,
+    string UserMessage,
+    ChatCommentKind CommentKind = ChatCommentKind.ReviewComment
 )
 {
     public const string MarkerPrefix = "<!-- aporia:";
@@ -90,7 +101,7 @@ public record ChatRequest(
 }
 
 public record ChatThreadContext(
-    int ThreadId,
+    long ThreadId,
     string? Fingerprint,
     string? FilePath,
     int? StartLine,

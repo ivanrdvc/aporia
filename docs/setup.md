@@ -55,7 +55,7 @@ Two auth modes: **GitHub App** (recommended — comments as `aporia[bot]`, auto-
 1. **Create the app** — GitHub Settings → Developer settings → GitHub Apps → New
    - Webhook URL: `https://func-aporia.azurewebsites.net/api/webhook/github?code=<function-key>`
    - Permissions: `pull_requests: rw`, `contents: r`, `issues: rw`, `metadata: r`
-   - Events: Pull request
+   - Events: Pull request, Pull request review comment, Issue comment
    - Generate and save a webhook secret
 2. **Generate a private key** — on the app page, download the `.pem` file
 3. **Install the app** on your org/account (all repos or selected)
@@ -95,4 +95,5 @@ az functionapp config appsettings set -n func-aporia -g rg-aporia-prod --setting
 
 PAT needs `repo` scope. Register the repo (same as above), then add a webhook on each repo:
 Repo Settings → Webhooks → Payload URL `https://func-aporia.azurewebsites.net/api/webhook/github?code=<function-key>`,
-content type `application/json`, secret = `GitHub:WebhookSecret`, events = "Pull requests".
+content type `application/json`, secret = `GitHub:WebhookSecret`, events = "Pull requests",
+"Pull request review comments", "Issue comments".
