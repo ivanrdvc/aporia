@@ -62,7 +62,7 @@ public class AppFixture : IAsyncLifetime
         {
             case GitProvider.Ado:
                 builder.Services.AddAdo();
-                builder.Services.AddSingleton<IGitConnector>(sp => sp.GetRequiredKeyedService<IGitConnector>(GitProvider.Ado));
+                builder.Services.AddSingleton(sp => sp.GetRequiredKeyedService<IGitConnector>(GitProvider.Ado));
                 builder.Services.AddSingleton<ITestHelper>(sp =>
                 {
                     var testOpts = sp.GetRequiredService<IOptions<TestRepoOptions>>().Value;
@@ -80,7 +80,7 @@ public class AppFixture : IAsyncLifetime
 
             case GitProvider.GitHub:
                 builder.Services.AddGitHub();
-                builder.Services.AddScoped<IGitConnector>(sp => sp.GetRequiredKeyedService<IGitConnector>(GitProvider.GitHub));
+                builder.Services.AddScoped(sp => sp.GetRequiredKeyedService<IGitConnector>(GitProvider.GitHub));
                 builder.Services.AddSingleton<ITestHelper, GitHubTestHelper>();
                 break;
         }

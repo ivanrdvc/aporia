@@ -93,7 +93,7 @@ public class CoreStrategyTests
             .Returns(new ChatResponse(new ChatMessage(ChatRole.Assistant, reviewerResponse)));
 
         var services = new ServiceCollection();
-        services.AddKeyedSingleton<IGitConnector>(GitProvider.Ado, _git);
+        services.AddKeyedSingleton(GitProvider.Ado, _git);
         var sp = services.BuildServiceProvider();
 
         var explorer = Substitute.For<IChatClient>();

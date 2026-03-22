@@ -19,6 +19,7 @@
     <InternalsVisibleTo Include="Aporia.Tests.Unit" />
     <InternalsVisibleTo Include="Aporia.Tests.Integration" />
     <InternalsVisibleTo Include="Aporia.Tests.Eval" />
+    <InternalsVisibleTo Include="Aporia.Cli" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.5" />
@@ -33,13 +34,13 @@
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Storage.Queues" Version="5.*" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.7" />
     <!-- OpenTelemetry -->
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="*" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.1.0" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.3.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="*" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="*" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="*" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.0" />
 
-    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="*" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.6.0" />
     <!-- Existing -->
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="20.268.0-preview" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.16.0" />

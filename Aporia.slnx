@@ -17,5 +17,8 @@
     <Project Path="tests/Aporia.Tests.Integration/Aporia.Tests.Integration.csproj" />
     <Project Path="tests/Aporia.Tests.Unit/Aporia.Tests.Unit.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Aporia.Cli/Aporia.Cli.csproj" />
+  </Folder>
   <Project Path="Aporia/Aporia.csproj" />
 </Solution>

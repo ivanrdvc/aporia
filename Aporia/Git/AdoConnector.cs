@@ -207,8 +207,8 @@ public class AdoConnector(
         var aporiaThreads = existingThreads
             .Where(t => !t.IsDeleted)
             .Where(t => t.Properties?.GetValue<string>(AporiaVersion, null!) is not null)
-            .Where(t => !string.IsNullOrEmpty(t.Properties!.GetValue<string>(AporiaFingerprint, "")))
-            .GroupBy(t => t.Properties!.GetValue<string>(AporiaFingerprint, ""))
+            .Where(t => !string.IsNullOrEmpty(t.Properties!.GetValue(AporiaFingerprint, "")))
+            .GroupBy(t => t.Properties!.GetValue(AporiaFingerprint, ""))
             .ToDictionary(g => g.Key, g => g.First());
 
         // Post new findings, skipping those already posted (fingerprint match)
