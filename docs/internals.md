@@ -87,6 +87,19 @@ replacement happens at the entry points (webhook `ToRequest`, admin registration
 
 **sessions** — AI conversation history. Managed by MAF's `CosmosChatHistoryProvider`. 180-day TTL. Linked from review documents for debugging.
 
+# CLI tool
+
+`tools/Aporia.Cli` is a standalone console app that reviews PRs by URL without Azure Functions,
+Cosmos, queues, or repo registration. It reuses the core review pipeline (`Reviewer`,
+`IGitConnector`, `IReviewStrategy`) via a lightweight generic host with no-op stores. Dry-run by
+default; `--post` pushes comments to the PR. Sessions are saved locally as numbered JSON files.
+OTEL traces and metrics export to an OTLP collector configured in `appsettings.json`.
+
+```bash
+dotnet run --project tools/Aporia.Cli -- review https://github.com/owner/repo/pull/123
+dotnet run --project tools/Aporia.Cli -- review https://github.com/owner/repo/pull/123 --post --model anthropic/claude-sonnet-4-5 --verbose
+```
+
 # Local testing
 
 Local development uses Azurite for queues. The VS Code task `start azurite` launches it
