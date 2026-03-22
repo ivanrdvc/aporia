@@ -15,6 +15,7 @@ public class GitHubWebhookTests
     [InlineData("opened")]
     [InlineData("synchronize")]
     [InlineData("reopened")]
+    [InlineData("ready_for_review")]
     public void ToRequest_SupportedAction_ReturnsRequest(string action)
     {
         var webhook = CreateWebhook(action);

@@ -9,7 +9,7 @@ public record GitHubWebhook(
     GitHubInstallation? Installation = null)
 {
     public ReviewRequest? ToRequest() =>
-        Action is ("opened" or "synchronize" or "reopened")
+        Action is ("opened" or "synchronize" or "reopened" or "ready_for_review")
             && !PullRequest.Draft
             ? new ReviewRequest(
                 Provider: GitProvider.GitHub,

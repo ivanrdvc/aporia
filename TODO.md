@@ -25,7 +25,7 @@
 - Local repo cloning support for tool-based reviews
 - Auto-detect per-repo metadata (language version, framework) to reduce false positives
 - Feature-level config system — per-repo feature toggles on `Repository` entity (app-owner controls) and `.aporia.json` `ProjectConfig` overrides (project-owner controls). Three-tier precedence: global `AporiaOptions` > per-repo `Repository` > `.aporia.json`. Applies to incremental reviews, code graph, chat, and future flags.
-- GitHub webhook: subscribe to `pull_request.ready_for_review` (draft→ready transition) to trigger reviews when PRs leave draft state
+- ~~GitHub webhook: subscribe to `pull_request.ready_for_review` (draft→ready transition) to trigger reviews when PRs leave draft state~~ (done)
 - GitHub chat: subscribe to `pull_request_review_comment.edited` for cache invalidation when users edit comments in review threads
 - GitHub issue context — scan PR body/title for `#N` references, fetch issue details (title, body, comments) via GitHub API, inject into reviewer context for better understanding of *why* the change was made
 - CodeFix fuzzy anchoring — instead of trusting LLM line numbers for suggestions, match the original code snippet against actual file content (exact → whitespace-trimmed → anchor-based) and reposition the suggestion to the real location. Reduces misplaced suggestions when line numbers drift.
