@@ -7,7 +7,8 @@
 - Pin `GetFile`/`ListFiles` to iteration commit SHA instead of branch tip
 - `CodeGraphIndexer` was registered as singleton with non-keyed `IGitConnector` — broke DI validation locally after keyed services were introduced. Temp-fixed by resolving via `IServiceProvider` at runtime. Should align with `IndexFunction`'s provider from `IndexRequest`.
 - Split `IGitConnector` — interface is too broad (pipeline + tools + chat). Consider splitting into focused interfaces (e.g. core pipeline, code browsing, chat) while keeping shared implementations.
-- `QueryCodeGraph` tool is registered unconditionally in `CoreStrategy` (reviewer + explorer) and `Reviewer` (chat) — LLM can call it even when `EnableCodeGraph` is false. Should only add the tool when `codeGraph != null`.
+- ~~`QueryCodeGraph` tool is registered unconditionally in `CoreStrategy` (reviewer + explorer) and `Reviewer` (chat) — LLM can call it even when `EnableCodeGraph` is false. Should only add the tool when `codeGraph != null`.~~ (done)
+- Code graph indexing only runs on repo registration. If a repo was registered before the feature existed, or `EnableCodeGraph` was false at the time, the graph is never built. Trigger indexing from the review pipeline — if a review runs and the code graph is empty, enqueue an `IndexRequest` to `index-queue` so the next review benefits. Don't block the current review.
 
 ## Features
 

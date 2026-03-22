@@ -101,10 +101,22 @@ public class Reviewer(
 
     public async Task<string> Chat(ReviewRequest req, IGitConnector git, ChatThreadContext threadContext, string userMessage, CancellationToken ct = default)
     {
+        var graphDocs = options.Value.EnableCodeGraph ? await codeGraphStore.GetAllAsync(req.RepositoryId) : null;
+        var codeGraph = graphDocs is { Count: > 0 } ? new CodeGraphQuery(graphDocs) : null;
+
         // Empty diff — chat tools don't need cached file content or diff-scoped search results.
         // FetchFile always hits the API; SearchCode returns repo-wide results only.
-        var tools = new ReviewerTools(git, req, new Diff([]));
+        var tools = new ReviewerTools(git, req, new Diff([]), codeGraph);
         var systemPrompt = BuildChatPrompt(threadContext);
+
+        var chatTools = new List<AITool>
+        {
+            AIFunctionFactory.Create(tools.FetchFile),
+            AIFunctionFactory.Create(tools.ListDirectory),
+            AIFunctionFactory.Create(tools.SearchCode),
+        };
+        if (codeGraph is not null)
+            chatTools.Add(AIFunctionFactory.Create(tools.QueryCodeGraph));
 
         var agent = chatClient
             .AsBuilder()
@@ -120,13 +132,7 @@ public class Reviewer(
                 ChatOptions = new ChatOptions
                 {
                     Instructions = systemPrompt,
-                    Tools =
-                    [
-                        AIFunctionFactory.Create(tools.FetchFile),
-                        AIFunctionFactory.Create(tools.ListDirectory),
-                        AIFunctionFactory.Create(tools.SearchCode),
-                        AIFunctionFactory.Create(tools.QueryCodeGraph),
-                    ],
+                    Tools = chatTools,
                     AllowMultipleToolCalls = true
                 },
                 ChatHistoryProvider = sessionProvider

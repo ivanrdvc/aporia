@@ -366,7 +366,6 @@ public partial class GitHubConnector(
     public async Task<ChatThreadContext?> GetChatThreadContext(ChatRequest req)
     {
         var (owner, repo) = ParseRepoId(req.Review.RepositoryId);
-        var prNumber = req.Review.PullRequestId;
 
         if (req.CommentKind is ChatCommentKind.IssueComment)
         {
