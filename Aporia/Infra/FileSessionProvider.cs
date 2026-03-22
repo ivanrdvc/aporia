@@ -4,15 +4,13 @@ using System.Text.Json.Serialization;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
-namespace Aporia.Tests.Integration.Fixtures;
+namespace Aporia.Infra;
 
 /// <summary>
 /// Write-only session provider that captures each agent invocation to a numbered JSON file.
-/// Returns no history (fresh session every run), avoiding Cosmos session accumulation.
-/// Override ProvideChatHistoryAsync (not InvokingCoreAsync) so the base class still
-/// appends context.RequestMessages — otherwise the user prompt is dropped.
+/// Returns no history (fresh session every run).
 /// </summary>
-internal sealed class FileSessionProvider(string directory) : ChatHistoryProvider
+public sealed class FileSessionProvider(string directory) : ChatHistoryProvider
 {
     private int _counter;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
@@ -23,7 +21,7 @@ internal sealed class FileSessionProvider(string directory) : ChatHistoryProvide
     protected override async ValueTask StoreChatHistoryAsync(
         InvokedContext context, CancellationToken ct = default)
     {
-        System.IO.Directory.CreateDirectory(directory);
+        Directory.CreateDirectory(directory);
         var idx = Interlocked.Increment(ref _counter);
 
         var agentName = context.Agent is ChatClientAgent chatAgent ? chatAgent.Name : null;

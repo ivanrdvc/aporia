@@ -28,7 +28,7 @@ public class ReviewFunctionTests
     private ReviewFunction CreateSut(AporiaOptions? aporiaOptions = null)
     {
         var services = new ServiceCollection();
-        services.AddKeyedSingleton<IGitConnector>(GitProvider.Ado, _git);
+        services.AddKeyedSingleton(GitProvider.Ado, _git);
         var sp = services.BuildServiceProvider();
         var opts = aporiaOptions ?? new AporiaOptions();
 
