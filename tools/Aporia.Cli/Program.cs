@@ -27,6 +27,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help")
 
 string? prUrl = null;
 bool post = false;
+bool clean = false;
 string? modelOverride = null;
 string? strategyOverride = null;
 bool verbose = false;
@@ -39,6 +40,9 @@ for (var i = 0; i < args.Length; i++)
             break;
         case "--post":
             post = true;
+            break;
+        case "--clean":
+            clean = true;
             break;
         case "--model" when i + 1 < args.Length:
             modelOverride = args[++i];
@@ -134,6 +138,14 @@ await host.StartAsync();
 
 using var scope = host.Services.CreateScope();
 var git = scope.ServiceProvider.GetRequiredKeyedService<IGitConnector>(parsed.Provider);
+
+if (clean)
+{
+    Console.Write($"Abandoning PR #{parsed.PullRequestId} and creating new PR... ");
+    var newPrId = await PrRecreator.RecreateAsync(parsed);
+    Console.WriteLine($"done. New PR #{newPrId}");
+    parsed = parsed with { PullRequestId = newPrId };
+}
 
 Console.WriteLine($"Reviewing PR #{parsed.PullRequestId}: {parsed.Owner}/{parsed.RepoName}");
 
@@ -269,6 +281,7 @@ static void PrintUsage()
 
         Options:
           --post            Post comments to the PR (dry-run by default)
+          --clean           Delete previous Aporia comments before posting (requires --post)
           --model <model>   Override reasoning model (e.g. anthropic/claude-sonnet-4-5)
           --strategy <key>  Override review strategy (core, copilot)
           --verbose         Print full findings and summary

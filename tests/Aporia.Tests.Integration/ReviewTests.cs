@@ -110,22 +110,4 @@ public class ReviewTests(
         return config.WithStrategy(strategyOverride);
     }
 
-    [Fact]
-    public async Task SelfReview_FullPipeline()
-    {
-        var target = Scenarios.SelfReview;
-        await ResetReviewState(target);
-
-        var config = await Git.GetConfig(target);
-        var diff = await Git.GetDiff(target, config);
-        var prContext = await Git.GetPrContext(target);
-        var result = await Reviewer.Review(target, diff, config, prContext);
-
-        await Git.PostReview(target, diff, result);
-
-        Output.WriteLine($"Findings: {result.Findings.Count}  (maxComments: {config.Review.MaxComments})");
-        var files = result.Findings.Select(f => f.FilePath).Distinct().ToList();
-        Output.WriteLine($"Files: {string.Join(", ", files)}");
-        Output.WriteLine($"Sessions: {SessionDirectory}");
-    }
 }

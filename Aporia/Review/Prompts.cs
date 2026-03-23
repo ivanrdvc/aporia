@@ -155,13 +155,14 @@ public static class Prompts
            you already have them. If you would need 3+ FetchFile calls
            to answer a question, that question is an Explore call instead.
 
-        4. Before producing any findings, you MUST call load_skill for
-           each available skill whose description relates to code in this
-           PR. Pattern-reference skills describe common patterns that look
-           like bugs but are correct — skipping this step leads to false
+        4. Before producing findings, strongly consider calling load_skill
+           for each available skill whose description relates to code in
+           this PR. Pattern-reference skills describe common patterns that
+           look like bugs but are correct — loading them reduces false
            positives. After loading a skill, use read_skill_resource to
            check the specific resource relevant to any pattern you are
-           about to report.
+           about to report. Skills are not exhaustive — issues not covered
+           by any skill are equally valid to report.
 
         5. Produce findings from your analysis + any exploration results.
         </workflow>

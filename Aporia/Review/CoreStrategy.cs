@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,9 +68,16 @@ public class CoreStrategy(
         session.StateBag.SetValue(SessionKeys.PrContext, prContext);
         session.StateBag.SetValue(SessionKeys.ProjectConfig, config);
 
-        var response = await reviewer.RunAsync(prompt, session, cancellationToken: ct);
-        return response.ExtractResult<ReviewResult>(logger)
-            ?? new([], "Review completed but failed to parse structured output.");
+        try
+        {
+            var response = await reviewer.RunAsync<ReviewResult>(prompt, session, cancellationToken: ct);
+            return response.Result;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or JsonException)
+        {
+            logger.LogWarning(ex, "Failed to parse structured output from reviewer");
+            return new ReviewResult([], "Review completed but failed to parse structured output.");
+        }
     }
 
     private static List<AITool> BuildTools(ReviewerTools tools, AITool? exploreTool = null, CodeGraphQuery? codeGraph = null)
@@ -158,15 +166,14 @@ public class CoreStrategy(
             await _concurrency.WaitAsync(cancellationToken);
             try
             {
-                var response = await _explorer.RunAsync(query, cancellationToken: cancellationToken);
-                var result = response.ExtractResult<ExplorationResult>(_logger);
-
-                if (result is not null)
-                {
-                    _logger.LogInformation("Exploration {Index} done", idx);
-                    return response.Messages.Last().Text!;
-                }
-
+                var response = await _explorer.RunAsync<ExplorationResult>(query, cancellationToken: cancellationToken);
+                var result = response.Result;
+                _logger.LogInformation("Exploration {Index} done", idx);
+                return response.Text!;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or JsonException)
+            {
+                _logger.LogWarning(ex, "Exploration {Index} failed to parse structured output", idx);
                 Telemetry.ExplorationFailures.Add(1);
                 return $"Exploration failed to produce structured results for: {query}";
             }

@@ -1,158 +1,63 @@
-# GitHub Integration Test Setup
+# Test Repository Setup
 
-Steps taken to set up GitHub provider integration testing, and inputs for updating
-the `/test` skill to be provider-aware.
+## Test Repos
 
-## What Was Done
+Both providers use the same slimmed-down `dotnet/eShop` fork with identical planted bugs.
 
-### 1. GitHub test repo
+### GitHub
+- **Repo:** `ivanrdvc/eShop` (fork of `dotnet/eShop`, slimmed to Ordering + Catalog + OrderProcessor)
+- **PR #1:** `feature/order-tracking-notifications` → `main`
+- **Profile:** `gh-eshop` in `appsettings.test.json`
 
-- Forked `dotnet/eShop` → `ivanrdvc/eShop`
-- Created PR #1 ("Order tracking notifications") with identical changes to ADO PR 12
-  (15 files, 489 insertions — same planted bugs)
-- Method: fetched ADO branch via PAT, generated patch, applied to GitHub fork
+### ADO
+- **Org:** `ivanradovic`, **Project:** `ivanrdvc`
+- **Repo:** `eShop` (mirror of GitHub fork)
+- **PR #53:** `feature/order-tracking-notifications` → `main`
+- **Profile:** `ado-eshop` in `appsettings.test.json`
 
-### 2. Test infrastructure refactored to be provider-agnostic
+## Planted Bugs (7 total)
 
-- **`ITestHelper`** interface (`BuildRequest`, `CleanComments`, `GetAporiaCommentCount`, `PrintComments`)
-- **`AdoTestHelper`** — ADO implementation (replaced static `AdoThreadHelper`)
-- **`GitHubTestHelper`** — GitHub implementation (uses REST API via `HttpClient`)
-- **`IntegrationTestBase`** — `GitClient` (ADO-specific) replaced with `ITestHelper`
-- **`AppFixture`** — provider-aware switch on `TestRepoOptions.Provider`
-- **`Scenarios.cs`** — added `GitHubMultiAgentCrossService` (PR #1 on `ivanrdvc/eShop`)
+### Required (4) — expect reviewer to catch
 
-### 3. Expectations
+| # | Bug | File |
+|---|-----|------|
+| 1 | Inconsistent HttpClient (`new HttpClient()`) | `Ordering.API/Infrastructure/Services/ShippingService.cs` |
+| 2 | Cross-microservice DB access (queries catalogdb) | `OrderProcessor/Services/ShippingNotificationService.cs` |
+| 3 | Retry non-idempotent POST | `OrderProcessor/Services/NotificationDispatcher.cs` |
+| 4 | Missing cancellation token propagation | `Ordering.API/Apis/OrdersApi.cs` (UpdateTrackingAsync) |
 
-- `expectations.json` updated with GitHub PR 1 entry under key `gh:ivanrdvc/eShop:1`
-- Same 4 required + 4 optional findings as ADO PR 12
+### Expected (2) — should catch with tools
 
-### 4. Secrets configured
+| # | Bug | File |
+|---|-----|------|
+| 5 | DI scope leak (singleton captures scoped) | `Ordering.API/Infrastructure/Services/OrderTrackingCache.cs` |
+| 6 | Domain logic in infrastructure | `Ordering.Infrastructure/Repositories/OrderRepository.cs` |
+
+### Stretch (1) — not expected to catch
+
+| # | Bug | File |
+|---|-----|------|
+| 7 | Semantic version skew (tax-exclusive price) | `Catalog.API/.../ProductPriceChangedIntegrationEvent.cs` + `OrderProcessor/Services/ProductPriceChangedHandler.cs` |
+
+## Secrets
 
 Both `Aporia.csproj` and `Aporia.Tests.Integration.csproj` user-secrets:
 
 ```
 GitHub:Token = <gh-pat>
-```
-
-For GitHub App auth (used in production, optional for tests):
-
-```
 GitHub:AppId = <app-id>
 GitHub:PrivateKey = <pem-contents>
+AzureDevOps:Organizations:ivanradovic:PersonalAccessToken = <ado-pat>
 ```
 
-### 5. Config switching
+## Config Switching
 
-`appsettings.test.json` — flip `TestRepo.Provider` between `Ado` and `GitHub`:
+Flip `TestProfile` in `appsettings.test.json`:
+- `"gh-eshop"` — GitHub provider
+- `"ado-eshop"` — ADO provider
 
-**GitHub:**
-```json
-"TestRepo": {
-  "Provider": "GitHub",
-  "Organization": "ivanrdvc",
-  "Project": "",
-  "RepositoryId": "ivanrdvc/eShop",
-  "RepositoryName": "eShop"
-},
-"TestTarget": {
-  "PrId": 1,
-  "Branch": "refs/heads/feature/order-tracking-notifications"
-}
-```
+## Expectations
 
-**ADO (original):**
-```json
-"TestRepo": {
-  "Provider": "Ado",
-  "Organization": "ivanradovic",
-  "Project": "ivanrndvc-sc",
-  "RepositoryId": "068b4389-3bae-438c-a0a7-08619db2b998",
-  "RepositoryName": "ivanrndvc-sc"
-},
-"TestTarget": {
-  "PrId": 12,
-  "Branch": "refs/heads/feature/order-tracking-notifications"
-}
-```
-
-## Inputs for `/test` Skill Update
-
-The `/test` skill needs provider-aware paths. Here's what changes per command:
-
-### `/test` (run pipeline test + verify)
-
-No changes to the test command itself — `Review_FullPipeline_PostsFindings` is provider-agnostic.
-`verify.py` and session analysis are also provider-agnostic.
-
-The only prerequisite: `appsettings.test.json` must point at the right provider before running.
-
-### `/test run` (end-to-end webhook flow)
-
-Provider-specific sections needed:
-
-| Step | ADO | GitHub |
-|------|-----|--------|
-| Create PR | `az repos pr create ...` | `gh pr create ...` |
-| Webhook endpoint | `POST /webhook/ado` | `POST /webhook/github` |
-| Webhook payload | `AdoWebhook` JSON shape | `GitHubWebhook` JSON shape |
-| Result inspection | `az devops invoke` (threads) | `gh api repos/{owner}/{repo}/pulls/{pr}/reviews` |
-
-The skill should read `TestRepo.Provider` from `appsettings.test.json` and branch accordingly.
-
-**GitHub webhook payload shape:**
-```json
-{
-  "action": "opened",
-  "number": 1,
-  "pull_request": {
-    "number": 1,
-    "draft": false,
-    "head": { "ref": "feature/order-tracking-notifications", "sha": "..." },
-    "base": { "ref": "main" }
-  },
-  "repository": {
-    "id": 123,
-    "name": "eShop",
-    "full_name": "ivanrdvc/eShop",
-    "owner": { "login": "ivanrdvc" }
-  }
-}
-```
-
-### `/test cleanup`
-
-- ADO: runs `DeleteAllComments` test (current behavior)
-- GitHub: `CleanComments` is a no-op (edit-in-place handles it). Could add dismiss-all-reviews
-  via `gh api`, but low priority.
-
-### `/test session`
-
-No changes — session JSON and `verify.py` are provider-agnostic.
-
-### `expectations.json`
-
-GitHub PR 1 is keyed as `gh:ivanrdvc/eShop:1`. The `verify.py` matching logic may need to
-handle this key format (currently expects numeric PR IDs). Check how `verify.py` resolves the
-key — it likely reads the PR ID from the test log/config and looks it up.
-
-## Files Changed
-
-```
-tests/Aporia.Tests.Integration/
-  Fixtures/
-    ITestHelper.cs                  (new)
-    AdoTestHelper.cs                (new — replaces AdoThreadHelper.cs)
-    GitHubTestHelper.cs             (new)
-    AdoThreadHelper.cs              (deleted)
-    AppFixture.cs                   (provider-aware switch)
-    IntegrationTestBase.cs          (GitClient → ITestHelper)
-    Scenarios.cs                    (added GitHub scenario, ADO uses private helper)
-  ReviewTests.cs                    (TestHelper instead of GitClient)
-  IncrementalReviewTests.cs         (TestHelper instead of GitClient)
-  CleanupTests.cs                   (TestHelper instead of GitClient)
-  FixtureCaptureTests.cs            (TestHelper.BuildRequest instead of AdoThreadHelper)
-  appsettings.test.json             (can now switch Provider to GitHub)
-.claude/skills/test/scripts/expectations.json  (added gh:ivanrdvc/eShop:1)
-docs/setup.md                      (added GitHub setup instructions)
-notes/plans/2026-03-14-github-support.md  (updated test repo setup, added pre-impl section)
-```
+`expectations.json` keys:
+- `gh:ivanrdvc/eShop:1` — GitHub PR 1
+- `53` — ADO PR 53

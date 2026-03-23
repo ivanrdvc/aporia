@@ -8,15 +8,20 @@ using Microsoft.Extensions.Logging;
 namespace Aporia.Infra.AI;
 
 /// <summary>
-/// Translates MEAI <see cref="ChatOptions.ResponseFormat"/> to Anthropic-native
-/// <see cref="OutputConfig"/> via <see cref="ChatOptions.RawRepresentationFactory"/>.
-/// The official Anthropic SDK's IChatClient adapter silently ignores ResponseFormat,
-/// so this middleware bridges the gap.
+/// Bridges MEAI options the Anthropic SDK silently ignores:
+/// <see cref="ChatOptions.ResponseFormat"/> → <see cref="OutputConfig"/> and
+/// <see cref="ChatOptions.Reasoning"/> → <see cref="ThinkingConfigParam"/>.
+/// Both are applied via <see cref="ChatOptions.RawRepresentationFactory"/>.
+///
+/// Also handles a Haiku behavioral issue: when tools, thinking, and structured
+/// output are all present, the model can produce a thinking-only response without
+/// emitting text. When detected, retries the call with tools stripped to force
+/// structured output generation.
 /// </summary>
 public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<AnthropicChatClientAdapter> logger)
     : DelegatingChatClient(inner)
 {
-    private const int DefaultMaxOutputTokens = 16_384;
+    private const int DefaultMaxOutputTokens = 64_000;
 
     private string? _model;
 
@@ -26,48 +31,73 @@ public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<Anthro
         var adapted = Adapt(options);
         var response = await base.GetResponseAsync(messages, adapted, cancellationToken);
 
-        // Log diagnostics when a structured-output call returns empty text.
-        // Captures the Anthropic stop_reason and raw content count so we can
-        // identify whether the API returned a refusal, max_tokens, or empty content.
-        if (adapted != options)
+        if (adapted == options || ChatFinishReason.ToolCalls.Equals(response.FinishReason))
+            return response;
+
+        var lastMsg = response.Messages.LastOrDefault();
+        if (lastMsg is null || !string.IsNullOrEmpty(lastMsg.Text))
+            return response;
+
+        // The model returned no text. When tools are present this can happen because
+        // the model gets stuck between calling tools and producing schema-constrained
+        // output. Retry once without tools to force structured output generation.
+        if (adapted?.Tools is { Count: > 0 })
         {
-            var lastMsg = response.Messages.LastOrDefault();
-            if (lastMsg is not null
-                && !ChatFinishReason.ToolCalls.Equals(response.FinishReason)
-                && string.IsNullOrEmpty(lastMsg.Text))
-            {
-                var rawMessage = response.RawRepresentation as Message;
-                logger.LogWarning(
-                    "Structured output returned empty text. " +
-                    "FinishReason={FinishReason}, StopReason={StopReason}, ContentCount={ContentCount}, ContentTypes={ContentTypes}",
-                    response.FinishReason,
-                    rawMessage?.StopReason?.Raw(),
-                    rawMessage?.Content?.Count,
-                    rawMessage?.Content is { } content
-                        ? string.Join(", ", content.Select(c => c.Json.TryGetProperty("type", out var t) ? t.GetString() : "unknown"))
-                        : "null");
-            }
+            logger.LogWarning("Thinking-only response with tools present — retrying without tools");
+            var retryOptions = adapted.Clone();
+            retryOptions.Tools = null;
+            retryOptions.ToolMode = null;
+            return await base.GetResponseAsync(messages, retryOptions, cancellationToken);
         }
+
+        var rawMessage = response.RawRepresentation as Message;
+        logger.LogWarning(
+            "Structured output returned empty text. " +
+            "FinishReason={FinishReason}, StopReason={StopReason}, ContentCount={ContentCount}, ContentTypes={ContentTypes}",
+            response.FinishReason,
+            rawMessage?.StopReason?.Raw(),
+            rawMessage?.Content?.Count,
+            rawMessage?.Content is { } content
+                ? string.Join(", ", content.Select(c => c.Json.TryGetProperty("type", out var t) ? t.GetString() : "unknown"))
+                : "null");
 
         return response;
     }
 
     private ChatOptions? Adapt(ChatOptions? options)
     {
-        if (options?.ResponseFormat is not ChatResponseFormatJson jsonFormat || jsonFormat.Schema is null)
-            return options;
+        if (options is null) return options;
+
+        var hasSchema = options.ResponseFormat is ChatResponseFormatJson { Schema: not null };
+        var hasReasoning = options.Reasoning is not null;
+
+        if (!hasSchema && !hasReasoning) return options;
 
         _model ??= InnerClient.GetService<ChatClientMetadata>()?.DefaultModelId
                     ?? throw new InvalidOperationException("Anthropic IChatClient did not expose model metadata.");
 
-        var strict = AddAdditionalPropertiesFalse(jsonFormat.Schema.Value);
-        var schemaDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(strict.GetRawText())
-                         ?? throw new InvalidOperationException("Failed to deserialize JSON schema from ChatResponseFormatJson.");
-
-        var outputConfig = new OutputConfig
+        OutputConfig? outputConfig = null;
+        if (hasSchema)
         {
-            Format = new JsonOutputFormat { Schema = schemaDict }
-        };
+            var jsonFormat = (ChatResponseFormatJson)options.ResponseFormat!;
+            var strict = AddAdditionalPropertiesFalse(jsonFormat.Schema!.Value);
+            var schemaDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(strict.GetRawText())
+                             ?? throw new InvalidOperationException("Failed to deserialize JSON schema from ChatResponseFormatJson.");
+            outputConfig = new OutputConfig { Format = new JsonOutputFormat { Schema = schemaDict } };
+        }
+
+        ThinkingConfigParam? thinking = null;
+        if (hasReasoning)
+        {
+            var budget = options.Reasoning!.Effort switch
+            {
+                ReasoningEffort.Low => 2048,
+                ReasoningEffort.Medium => 4096,
+                ReasoningEffort.High => 8192,
+                _ => 4096
+            };
+            thinking = new ThinkingConfigParam(new ThinkingConfigEnabled(budgetTokens: budget));
+        }
 
         var adapted = options.Clone();
         adapted.RawRepresentationFactory = _ => new MessageCreateParams
@@ -75,7 +105,8 @@ public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<Anthro
             Model = _model,
             MaxTokens = options.MaxOutputTokens ?? DefaultMaxOutputTokens,
             Messages = [],
-            OutputConfig = outputConfig
+            OutputConfig = outputConfig,
+            Thinking = thinking,
         };
         return adapted;
     }

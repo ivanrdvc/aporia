@@ -65,7 +65,7 @@ public static class ChatClientExtensions
                 ApiKey = anthropic.ApiKey,
                 HttpClient = new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan },
             }
-                .AsIChatClient(model, defaultMaxOutputTokens: 16_384),
+                .AsIChatClient(model, defaultMaxOutputTokens: 64_000),
 
         "openai" or "azure" or "anthropic" =>
             throw new InvalidOperationException(

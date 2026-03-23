@@ -1,6 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using Aporia.Tests.Integration.Fixtures;
 
 using Xunit.Abstractions;
@@ -8,8 +11,9 @@ using Xunit.Abstractions;
 namespace Aporia.Tests.Integration;
 
 /// <summary>
-/// Captures real ADO diff data as eval fixture JSON. Only calls ADO API — no LLM.
-/// Run manually, then copy the output JSON toAporia.Tests.Eval/TestData/.
+/// Captures real diff data as eval fixture JSON. Only calls Git API — no LLM.
+/// Run manually, then copy the output JSON to Aporia.Tests.Eval/TestData/.
+/// Uses TestTarget from appsettings.test.json for the PR to capture.
 /// </summary>
 public class FixtureCaptureTests(
     AppFixture fixture,
@@ -23,10 +27,18 @@ public class FixtureCaptureTests(
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    [Fact]
-    public async Task Capture_CleanPrNoFindings()
+    private ReviewRequest GetTestEvent()
     {
-        var req = TestHelper.BuildRequest(13, "refs/heads/feature/order-status-endpoint");
+        var config = Services.GetRequiredService<IConfiguration>();
+        var prId = config.GetValue<int>("TestTarget:PrId");
+        var branch = config.GetValue<string>("TestTarget:Branch")!;
+        return TestHelper.BuildRequest(prId, branch);
+    }
+
+    [Fact]
+    public async Task Capture_Fixture()
+    {
+        var req = GetTestEvent();
 
         // Reset iteration state so GetDiff returns the full diff
         await ResetReviewState(req);
@@ -38,28 +50,19 @@ public class FixtureCaptureTests(
         foreach (var f in diff.Files)
             Output.WriteLine($"  [{f.Kind}] {f.Path}");
 
-        // Fetch context files the agent might investigate
-        var contextPaths = new[]
-        {
-            "/src/Ordering.API/Apis/OrdersApi.cs",
-            "/src/Ordering.API/Apis/OrderServices.cs",
-            "/src/Ordering.API/Application/Queries/IOrderQueries.cs",
-            "/src/Ordering.API/Application/Queries/OrderQueries.cs",
-            "/src/Ordering.API/Application/Queries/OrderStatusResponse.cs"
-        };
-
+        // Fetch all files in the diff as context the agent might investigate
         var files = new Dictionary<string, string>();
-        foreach (var path in contextPaths)
+        foreach (var f in diff.Files)
         {
-            var content = await Git.GetFile(req, path);
+            var content = await Git.GetFile(req, f.Path);
             if (content is not null)
             {
-                files[path] = content;
-                Output.WriteLine($"  Fetched: {path} ({content.Length} chars)");
+                files[f.Path] = content;
+                Output.WriteLine($"  Fetched: {f.Path} ({content.Length} chars)");
             }
             else
             {
-                Output.WriteLine($"  Missing: {path}");
+                Output.WriteLine($"  Missing: {f.Path}");
             }
         }
 
