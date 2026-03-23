@@ -8,10 +8,10 @@ using Microsoft.Extensions.Logging;
 namespace Aporia.Infra.AI;
 
 /// <summary>
-/// Translates MEAI <see cref="ChatOptions.ResponseFormat"/> to Anthropic-native
-/// <see cref="OutputConfig"/> via <see cref="ChatOptions.RawRepresentationFactory"/>.
-/// The official Anthropic SDK's IChatClient adapter silently ignores ResponseFormat,
-/// so this middleware bridges the gap.
+/// Bridges MEAI options the Anthropic SDK silently ignores:
+/// <see cref="ChatOptions.ResponseFormat"/> → <see cref="OutputConfig"/> and
+/// <see cref="ChatOptions.Reasoning"/> → <see cref="ThinkingConfigParam"/>.
+/// Both are applied via <see cref="ChatOptions.RawRepresentationFactory"/>.
 /// </summary>
 public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<AnthropicChatClientAdapter> logger)
     : DelegatingChatClient(inner)
@@ -54,20 +54,39 @@ public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<Anthro
 
     private ChatOptions? Adapt(ChatOptions? options)
     {
-        if (options?.ResponseFormat is not ChatResponseFormatJson jsonFormat || jsonFormat.Schema is null)
-            return options;
+        if (options is null) return options;
+
+        var hasSchema = options.ResponseFormat is ChatResponseFormatJson { Schema: not null };
+        var hasReasoning = options.Reasoning is not null;
+
+        if (!hasSchema && !hasReasoning) return options;
 
         _model ??= InnerClient.GetService<ChatClientMetadata>()?.DefaultModelId
                     ?? throw new InvalidOperationException("Anthropic IChatClient did not expose model metadata.");
 
-        var strict = AddAdditionalPropertiesFalse(jsonFormat.Schema.Value);
-        var schemaDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(strict.GetRawText())
-                         ?? throw new InvalidOperationException("Failed to deserialize JSON schema from ChatResponseFormatJson.");
-
-        var outputConfig = new OutputConfig
+        OutputConfig? outputConfig = null;
+        if (hasSchema)
         {
-            Format = new JsonOutputFormat { Schema = schemaDict }
-        };
+            var jsonFormat = (ChatResponseFormatJson)options.ResponseFormat!;
+            var strict = AddAdditionalPropertiesFalse(jsonFormat.Schema!.Value);
+            var schemaDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(strict.GetRawText())
+                             ?? throw new InvalidOperationException("Failed to deserialize JSON schema from ChatResponseFormatJson.");
+            outputConfig = new OutputConfig { Format = new JsonOutputFormat { Schema = schemaDict } };
+        }
+
+        // The Anthropic SDK ignores ChatOptions.Reasoning — translate to native ThinkingConfigParam.
+        ThinkingConfigParam? thinking = null;
+        if (hasReasoning)
+        {
+            var budget = options.Reasoning!.Effort switch
+            {
+                ReasoningEffort.Low => 2048,
+                ReasoningEffort.Medium => 4096,
+                ReasoningEffort.High => 8192,
+                _ => 4096
+            };
+            thinking = new ThinkingConfigParam(new ThinkingConfigEnabled(budgetTokens: budget));
+        }
 
         var adapted = options.Clone();
         adapted.RawRepresentationFactory = _ => new MessageCreateParams
@@ -75,7 +94,8 @@ public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<Anthro
             Model = _model,
             MaxTokens = options.MaxOutputTokens ?? DefaultMaxOutputTokens,
             Messages = [],
-            OutputConfig = outputConfig
+            OutputConfig = outputConfig,
+            Thinking = thinking,
         };
         return adapted;
     }

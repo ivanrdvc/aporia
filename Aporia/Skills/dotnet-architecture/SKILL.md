@@ -7,6 +7,8 @@ Standard .NET patterns that are frequently misidentified as bugs during review.
 Each resource describes how a pattern works and the one check that distinguishes
 correct usage from a real bug. Not checking leads to false positives.
 
+This list is not exhaustive. Issues not covered here are equally valid to report.
+
 ## Resources
 
 Use `read_skill_resource("dotnet-architecture", "<filename>")` to load.
