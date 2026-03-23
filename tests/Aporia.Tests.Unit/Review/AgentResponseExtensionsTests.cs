@@ -44,16 +44,30 @@ public class AgentResponseExtensionsTests
     }
 
     [Fact]
-    public void ExtractResult_UsesLastMessage()
+    public void ExtractResult_MultipleValid_TakesLongest()
     {
         var response = new AgentResponse();
-        response.Messages.Add(new ChatMessage(ChatRole.Assistant, "garbage"));
-        response.Messages.Add(new ChatMessage(ChatRole.Assistant, """{"Name":"last","Value":2}"""));
+        response.Messages.Add(new ChatMessage(ChatRole.Assistant, """{"Name":"first message with more content","Value":1}"""));
+        response.Messages.Add(new ChatMessage(ChatRole.Assistant, """{"Name":"short","Value":2}"""));
 
         var result = response.ExtractResult<Dto>(_logger);
 
         Assert.NotNull(result);
-        Assert.Equal("last", result!.Name);
+        Assert.Equal("first message with more content", result!.Name);
+    }
+
+    [Fact]
+    public void ExtractResult_EarlierValidLaterInvalid_TakesEarlier()
+    {
+        var response = new AgentResponse();
+        response.Messages.Add(new ChatMessage(ChatRole.Assistant, """{"Name":"valid","Value":1}"""));
+        response.Messages.Add(new ChatMessage(ChatRole.User, "tool result"));
+        response.Messages.Add(new ChatMessage(ChatRole.Assistant, "not json"));
+
+        var result = response.ExtractResult<Dto>(_logger);
+
+        Assert.NotNull(result);
+        Assert.Equal("valid", result!.Name);
     }
 
     private static AgentResponse MakeResponse(string text)

@@ -1,106 +1,94 @@
 {
   "gh:ivanrdvc/eShop:1": {
-    "description": "Multi-agent cross-service — GitHub (ivanrdvc/eShop PR 1, same bugs as ADO PR 12)",
+    "description": "Multi-agent cross-service — GitHub (ivanrdvc/eShop PR 1)",
     "expectedFindings": [
       {
-        "file": "/src/Catalog.API/Apis/ShippingRatesApi.cs",
-        "keywords": ["connection", "credential", "database", "cross-service", "microservice"],
-        "description": "Cross-service DB: Catalog queries Ordering database",
+        "file": "/src/Ordering.API/Infrastructure/Services/ShippingService.cs",
+        "keywords": ["httpclient", "new HttpClient", "IHttpClientFactory", "dispose", "socket"],
+        "description": "Inconsistent HttpClient: manual new HttpClient() instead of IHttpClientFactory",
         "required": true
       },
       {
-        "file": "/src/OrderProcessor/Services/GracePeriodManagerService.cs",
-        "keywords": ["connection", "credential", "database", "cross-service", "catalog"],
-        "description": "Cross-service DB: OrderProcessor queries Catalog database",
+        "file": "/src/OrderProcessor/Services/ShippingNotificationService.cs",
+        "keywords": ["catalogdb", "connection", "database", "cross-service", "microservice", "NpgsqlConnection"],
+        "description": "Cross-microservice DB access: OrderProcessor directly queries Catalog database",
         "required": true
       },
       {
-        "file": "/src/Ordering.API/Services/ShippingNotificationService.cs",
-        "keywords": ["pii", "sensitive", "email", "address", "personal", "log"],
-        "description": "PII logging: customer email, name, address",
+        "file": "/src/OrderProcessor/Services/NotificationDispatcher.cs",
+        "keywords": ["retry", "idempotent", "duplicate", "POST", "non-idempotent"],
+        "description": "Retry non-idempotent: retry loop around POST creates duplicate notifications",
         "required": true
       },
       {
-        "file": "/src/Ordering.API/Application/Commands/UpdateTrackingCommand.cs",
-        "keywords": ["authorization", "idor", "ownership", "verify", "caller"],
-        "description": "IDOR: no ownership check before updating tracking",
+        "file": "/src/Ordering.API/Apis/OrdersApi.cs",
+        "keywords": ["cancellation", "CancellationToken", "token", "propagat"],
+        "description": "Missing cancellation token: UpdateTrackingAsync accepts but doesn't pass CancellationToken",
         "required": true
       },
       {
-        "file": "/src/OrderProcessor/Services/GracePeriodManagerService.cs",
-        "keywords": ["availability", "any", "all", "logic"],
-        "description": "Logic bug: ANY vs ALL product availability check",
+        "file": "/src/Ordering.API/Infrastructure/Services/OrderTrackingCache.cs",
+        "keywords": ["singleton", "scoped", "scope", "lifetime", "DbContext", "IOrderRepository", "DI"],
+        "description": "DI scope leak: singleton OrderTrackingCache captures scoped IOrderRepository",
         "required": false
       },
       {
-        "file": "/src/Webhooks.API/Model/WebhookType.cs",
-        "keywords": ["ordinal", "enum", "shift", "value"],
-        "description": "Enum ordinal shift breaks existing values",
+        "file": "/src/Ordering.Infrastructure/Repositories/OrderRepository.cs",
+        "keywords": ["domain", "business", "logic", "infrastructure", "repository", "minimum", "shippable"],
+        "description": "Domain logic in infrastructure: GetShippableOrdersAsync contains business rules",
         "required": false
       },
       {
-        "file": "/src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs",
-        "keywords": ["guard", "status", "tracking", "validation"],
-        "description": "DDD violation: SetTrackingNumber missing status guard",
-        "required": false
-      },
-      {
-        "file": "/src/Webhooks.API/IntegrationEvents/OrderTrackingUpdatedIntegrationEventHandler.cs",
-        "keywords": ["httpclient", "retriever", "sender", "inconsistent", "pattern"],
-        "description": "Inconsistent: manual HttpClient instead of retriever/sender",
+        "file": "/src/OrderProcessor/Services/ProductPriceChangedHandler.cs",
+        "keywords": ["tax", "price", "exclusive", "inclusive", "semantics", "TaxRate"],
+        "description": "Semantic version skew: price changed to tax-exclusive but handler stores as-is",
         "required": false
       }
     ]
   },
-  "12": {
-    "description": "Multi-agent cross-service (PR 12)",
+  "53": {
+    "description": "Multi-agent cross-service — ADO (eShop PR 53)",
     "expectedFindings": [
       {
-        "file": "/src/Catalog.API/Apis/ShippingRatesApi.cs",
-        "keywords": ["connection", "credential", "database", "cross-service", "microservice"],
-        "description": "Cross-service DB: Catalog queries Ordering database",
+        "file": "/src/Ordering.API/Infrastructure/Services/ShippingService.cs",
+        "keywords": ["httpclient", "new HttpClient", "IHttpClientFactory", "dispose", "socket"],
+        "description": "Inconsistent HttpClient: manual new HttpClient() instead of IHttpClientFactory",
         "required": true
       },
       {
-        "file": "/src/OrderProcessor/Services/GracePeriodManagerService.cs",
-        "keywords": ["connection", "credential", "database", "cross-service", "catalog"],
-        "description": "Cross-service DB: OrderProcessor queries Catalog database",
+        "file": "/src/OrderProcessor/Services/ShippingNotificationService.cs",
+        "keywords": ["catalogdb", "connection", "database", "cross-service", "microservice", "NpgsqlConnection"],
+        "description": "Cross-microservice DB access: OrderProcessor directly queries Catalog database",
         "required": true
       },
       {
-        "file": "/src/Ordering.API/Services/ShippingNotificationService.cs",
-        "keywords": ["pii", "sensitive", "email", "address", "personal", "log"],
-        "description": "PII logging: customer email, name, address",
+        "file": "/src/OrderProcessor/Services/NotificationDispatcher.cs",
+        "keywords": ["retry", "idempotent", "duplicate", "POST", "non-idempotent"],
+        "description": "Retry non-idempotent: retry loop around POST creates duplicate notifications",
         "required": true
       },
       {
-        "file": "/src/Ordering.API/Application/Commands/UpdateTrackingCommand.cs",
-        "keywords": ["authorization", "idor", "ownership", "verify", "caller"],
-        "description": "IDOR: no ownership check before updating tracking",
+        "file": "/src/Ordering.API/Apis/OrdersApi.cs",
+        "keywords": ["cancellation", "CancellationToken", "token", "propagat"],
+        "description": "Missing cancellation token: UpdateTrackingAsync accepts but doesn't pass CancellationToken",
         "required": true
       },
       {
-        "file": "/src/OrderProcessor/Services/GracePeriodManagerService.cs",
-        "keywords": ["availability", "any", "all", "logic"],
-        "description": "Logic bug: ANY vs ALL product availability check",
+        "file": "/src/Ordering.API/Infrastructure/Services/OrderTrackingCache.cs",
+        "keywords": ["singleton", "scoped", "scope", "lifetime", "DbContext", "IOrderRepository", "DI"],
+        "description": "DI scope leak: singleton OrderTrackingCache captures scoped IOrderRepository",
         "required": false
       },
       {
-        "file": "/src/Webhooks.API/Model/WebhookType.cs",
-        "keywords": ["ordinal", "enum", "shift", "value"],
-        "description": "Enum ordinal shift breaks existing values",
+        "file": "/src/Ordering.Infrastructure/Repositories/OrderRepository.cs",
+        "keywords": ["domain", "business", "logic", "infrastructure", "repository", "minimum", "shippable"],
+        "description": "Domain logic in infrastructure: GetShippableOrdersAsync contains business rules",
         "required": false
       },
       {
-        "file": "/src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs",
-        "keywords": ["guard", "status", "tracking", "validation"],
-        "description": "DDD violation: SetTrackingNumber missing status guard",
-        "required": false
-      },
-      {
-        "file": "/src/Webhooks.API/IntegrationEvents/OrderTrackingUpdatedIntegrationEventHandler.cs",
-        "keywords": ["httpclient", "retriever", "sender", "inconsistent", "pattern"],
-        "description": "Inconsistent: manual HttpClient instead of retriever/sender",
+        "file": "/src/OrderProcessor/Services/ProductPriceChangedHandler.cs",
+        "keywords": ["tax", "price", "exclusive", "inclusive", "semantics", "TaxRate"],
+        "description": "Semantic version skew: price changed to tax-exclusive but handler stores as-is",
         "required": false
       }
     ]

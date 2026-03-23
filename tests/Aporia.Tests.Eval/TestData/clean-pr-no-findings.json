@@ -1,9 +1,9 @@
 {
   "request": {
     "provider": "ado",
-    "project": "ivanrndvc-sc",
-    "repositoryId": "068b4389-3bae-438c-a0a7-08619db2b998",
-    "repositoryName": "ivanrndvc-sc",
+    "project": "ivanrdvc",
+    "repositoryId": "a9f4a02d-bc66-4fb6-8009-a8ea2b713e6e",
+    "repositoryName": "eShop",
     "pullRequestId": 13,
     "sourceBranch": "refs/heads/feature/order-status-endpoint",
     "targetBranch": "refs/heads/main"

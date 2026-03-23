@@ -1,17 +1,29 @@
 using Aporia.Git;
 using Aporia.Tests.Integration.Fixtures;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using Xunit.Abstractions;
 
 namespace Aporia.Tests.Integration;
 
 /// Verifies the incremental review pipeline: a second run with no new commits
 /// returns an empty diff and skips review, and duplicate findings are not reposted.
+/// Requires a PR with multiple iterations (pushes) — configure via TestTarget in appsettings.
 public class IncrementalReviewTests(
     AppFixture fixture,
     ITestOutputHelper output) : IntegrationTestBase(fixture, output)
 {
-    private static readonly ReviewRequest TestEvent = Scenarios.IncrementalTest;
+    private ReviewRequest TestEvent => GetTestEvent();
+
+    private ReviewRequest GetTestEvent()
+    {
+        var config = Services.GetRequiredService<IConfiguration>();
+        var prId = config.GetValue<int>("TestTarget:PrId");
+        var branch = config.GetValue<string>("TestTarget:Branch")!;
+        return TestHelper.BuildRequest(prId, branch);
+    }
 
     [Fact]
     public async Task IncrementalReview_SkipsWhenNoNewIteration()

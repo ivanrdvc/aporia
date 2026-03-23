@@ -22,7 +22,8 @@ public class CodeGraphIndexer(
 
     public async Task IndexAsync(IndexRequest req, CancellationToken ct)
     {
-        var git = sp.GetRequiredKeyedService<IGitConnector>(req.Provider);
+        using var scope = sp.CreateScope();
+        var git = scope.ServiceProvider.GetRequiredKeyedService<IGitConnector>(req.Provider);
         var repo = await repoStore.GetAsync(req.RepositoryId);
         var organization = repo?.Organization ?? "";
 
