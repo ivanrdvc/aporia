@@ -12,11 +12,16 @@ namespace Aporia.Infra.AI;
 /// <see cref="ChatOptions.ResponseFormat"/> → <see cref="OutputConfig"/> and
 /// <see cref="ChatOptions.Reasoning"/> → <see cref="ThinkingConfigParam"/>.
 /// Both are applied via <see cref="ChatOptions.RawRepresentationFactory"/>.
+///
+/// Also handles a Haiku behavioral issue: when tools, thinking, and structured
+/// output are all present, the model can produce a thinking-only response without
+/// emitting text. When detected, retries the call with tools stripped to force
+/// structured output generation.
 /// </summary>
 public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<AnthropicChatClientAdapter> logger)
     : DelegatingChatClient(inner)
 {
-    private const int DefaultMaxOutputTokens = 16_384;
+    private const int DefaultMaxOutputTokens = 64_000;
 
     private string? _model;
 
@@ -26,28 +31,35 @@ public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<Anthro
         var adapted = Adapt(options);
         var response = await base.GetResponseAsync(messages, adapted, cancellationToken);
 
-        // Log diagnostics when a structured-output call returns empty text.
-        // Captures the Anthropic stop_reason and raw content count so we can
-        // identify whether the API returned a refusal, max_tokens, or empty content.
-        if (adapted != options)
+        if (adapted == options || ChatFinishReason.ToolCalls.Equals(response.FinishReason))
+            return response;
+
+        var lastMsg = response.Messages.LastOrDefault();
+        if (lastMsg is null || !string.IsNullOrEmpty(lastMsg.Text))
+            return response;
+
+        // The model returned no text. When tools are present this can happen because
+        // the model gets stuck between calling tools and producing schema-constrained
+        // output. Retry once without tools to force structured output generation.
+        if (adapted?.Tools is { Count: > 0 })
         {
-            var lastMsg = response.Messages.LastOrDefault();
-            if (lastMsg is not null
-                && !ChatFinishReason.ToolCalls.Equals(response.FinishReason)
-                && string.IsNullOrEmpty(lastMsg.Text))
-            {
-                var rawMessage = response.RawRepresentation as Message;
-                logger.LogWarning(
-                    "Structured output returned empty text. " +
-                    "FinishReason={FinishReason}, StopReason={StopReason}, ContentCount={ContentCount}, ContentTypes={ContentTypes}",
-                    response.FinishReason,
-                    rawMessage?.StopReason?.Raw(),
-                    rawMessage?.Content?.Count,
-                    rawMessage?.Content is { } content
-                        ? string.Join(", ", content.Select(c => c.Json.TryGetProperty("type", out var t) ? t.GetString() : "unknown"))
-                        : "null");
-            }
+            logger.LogWarning("Thinking-only response with tools present — retrying without tools");
+            var retryOptions = adapted.Clone();
+            retryOptions.Tools = null;
+            retryOptions.ToolMode = null;
+            return await base.GetResponseAsync(messages, retryOptions, cancellationToken);
         }
+
+        var rawMessage = response.RawRepresentation as Message;
+        logger.LogWarning(
+            "Structured output returned empty text. " +
+            "FinishReason={FinishReason}, StopReason={StopReason}, ContentCount={ContentCount}, ContentTypes={ContentTypes}",
+            response.FinishReason,
+            rawMessage?.StopReason?.Raw(),
+            rawMessage?.Content?.Count,
+            rawMessage?.Content is { } content
+                ? string.Join(", ", content.Select(c => c.Json.TryGetProperty("type", out var t) ? t.GetString() : "unknown"))
+                : "null");
 
         return response;
     }
@@ -74,7 +86,6 @@ public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<Anthro
             outputConfig = new OutputConfig { Format = new JsonOutputFormat { Schema = schemaDict } };
         }
 
-        // The Anthropic SDK ignores ChatOptions.Reasoning — translate to native ThinkingConfigParam.
         ThinkingConfigParam? thinking = null;
         if (hasReasoning)
         {

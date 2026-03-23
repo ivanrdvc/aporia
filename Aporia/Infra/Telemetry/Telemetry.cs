@@ -39,14 +39,8 @@ public static class Telemetry
         "aporia.agent.explorations", description: "Explorer agent dispatches");
 
     // Failure tracking (recorded in CoreStrategy)
-    public static readonly Counter<int> ParseFailures = Meter.CreateCounter<int>(
-        "aporia.review.parse_failures", description: "Reviews where structured output failed to parse");
-
     public static readonly Counter<int> ExplorationFailures = Meter.CreateCounter<int>(
         "aporia.agent.exploration_failures", description: "Explorer invocations that failed or returned invalid output");
-
-    public static readonly Counter<int> AgentAbnormalFinish = Meter.CreateCounter<int>(
-        "aporia.agent.abnormal_finish", description: "Agent runs that ended with a non-stop finish reason (length, content filter, etc.)");
 
     // Copilot strategy
     public static readonly Counter<int> CopilotExtractionFailures = Meter.CreateCounter<int>(
