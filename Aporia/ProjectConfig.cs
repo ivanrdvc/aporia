@@ -12,6 +12,7 @@ public class ProjectConfig
     public FileConfig Files { get; init; } = new();
     public List<string> Rules { get; init; } = [];
     public string? Context { get; init; }
+    public DocWatchConfig? DocWatch { get; init; }
 
     public static readonly ProjectConfig Default = new()
     {
@@ -32,7 +33,8 @@ public class ProjectConfig
         Review = new ReviewConfig { Strategy = strategy, MaxComments = Review.MaxComments },
         Files = Files,
         Rules = Rules,
-        Context = Context
+        Context = Context,
+        DocWatch = DocWatch
     };
 
     public static ProjectConfig Parse(string? raw)
@@ -56,7 +58,8 @@ public class ProjectConfig
                 Ignore = Merge(d.Files.Ignore, o.Files.Ignore)
             },
             Rules = Merge(d.Rules, o.Rules),
-            Context = o.Context ?? d.Context
+            Context = o.Context ?? d.Context,
+            DocWatch = o.DocWatch
         };
     }
 
@@ -78,6 +81,18 @@ public class ReviewConfig
 {
     public string? Strategy { get; init; }
     public int? MaxComments { get; init; }
+}
+
+public class DocWatchConfig
+{
+    public string? Context { get; init; }
+    public DiagramConfig Diagrams { get; init; } = new();
+}
+
+public class DiagramConfig
+{
+    public bool Enabled { get; init; }
+    public string Format { get; init; } = "excalidraw";
 }
 
 public class FileConfig

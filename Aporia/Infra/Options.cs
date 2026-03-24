@@ -8,6 +8,7 @@ public class AporiaOptions
     public bool EnablePostComments { get; init; } = true;
     public bool EnableChat { get; init; }
     public bool EnableWorkItems { get; init; }
+    public bool EnableDocWatch { get; init; }
 }
 
 public static class SessionKeys

@@ -29,7 +29,9 @@ public record GitHubPullRequest(
     int Number,
     bool Draft,
     GitHubRef Head,
-    GitHubRef Base);
+    GitHubRef Base,
+    string? Title = null,
+    bool Merged = false);
 
 public record GitHubRef(
     string Ref,

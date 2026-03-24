@@ -5,6 +5,7 @@ namespace Aporia.Git;
 internal record GitHubContent(
     string? Content,
     string Path,
+    string? Sha = null,
     string? Type = null,
     [property: JsonPropertyName("git_url")] string? GitUrl = null);
 

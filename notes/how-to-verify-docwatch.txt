@@ -1,0 +1,19 @@
+DocWatch E2E verification against ADO
+======================================
+
+1. Create a docs repo:
+   az repos create --name <name> --org https://dev.azure.com/ivanradovic --project ivanrdvc
+
+2. Seed it (push README + .aporia.json via ADO REST API or git clone & push).
+
+3. Update DocWatchTests.cs with the new repo GUID in DocsRepo field.
+   Format: "ivanradovic__ivanrdvc__<repo-guid>"
+
+4. Run:
+   TEST_PROFILE=ado-eshop dotnet test tests/Aporia.Tests.Integration \
+     --filter "FullyQualifiedName~DocWatch_EShopPr53"
+
+5. Check the created PR link in test output.
+
+6. Cleanup (optional):
+   az repos delete --id <repo-guid> --org https://dev.azure.com/ivanradovic --project ivanrdvc -y

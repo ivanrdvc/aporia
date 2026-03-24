@@ -108,6 +108,18 @@ public record ChatThreadContext(
     IReadOnlyList<string> ThreadMessages
 );
 
+public record DocWatchRequest(
+    GitProvider Provider,
+    string SourceRepo,
+    string SourceRepoName,
+    int PullRequestId,
+    string SourceBranch,
+    string TargetBranch,
+    string DocsRepo,
+    string Organization,
+    long? InstallationId = null
+);
+
 public record ExplorationResult(
     string Answer,
     List<FileEvidence> Evidence

@@ -3,6 +3,7 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using Aporia.DocWatch;
 using Aporia.Git;
 using Aporia.Infra;
 using Aporia.Infra.AI;
@@ -29,5 +30,6 @@ builder.Services.AddKeyedScoped<IReviewStrategy, CoreStrategy>(ReviewStrategy.Co
 builder.Services.AddKeyedScoped<IReviewStrategy, CopilotStrategy>(ReviewStrategy.Copilot);
 builder.Services.AddScoped<Func<string, IReviewStrategy>>(sp => key => sp.GetRequiredKeyedService<IReviewStrategy>(key));
 builder.Services.AddScoped<Reviewer>();
+builder.Services.AddScoped<DocWatcher>();
 
 builder.Build().Run();

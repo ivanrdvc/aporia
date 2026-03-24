@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 
+using Aporia.DocWatch;
 using Aporia.Git;
 using Aporia.Infra;
 using Aporia.Infra.AI;
@@ -84,6 +85,9 @@ public class AppFixture : IAsyncLifetime
                 builder.Services.AddSingleton<ITestHelper, GitHubTestHelper>();
                 break;
         }
+
+        // Doc Watch
+        builder.Services.AddScoped<DocWatcher>();
 
         // Domain
         builder.Services.AddSingleton<PrContextProvider>();

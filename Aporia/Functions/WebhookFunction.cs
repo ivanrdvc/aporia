@@ -11,13 +11,14 @@ using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Enums;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 
+using Aporia.DocWatch;
 using Aporia.Git;
 using Aporia.Infra;
 using Aporia.Infra.Cosmos;
 
 namespace Aporia.Functions;
 
-public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHubOptions, IOptions<AporiaOptions> aporiaOptions)
+public class WebhookFunction(IRepoStore repoStore, IDocWatchStore docWatchStore, IOptions<GitHubOptions> gitHubOptions, IOptions<AporiaOptions> aporiaOptions)
 {
     [Function("WebhookAdo")]
     [OpenApiOperation(operationId: "WebhookAdo", tags: ["Webhooks"],
@@ -88,15 +89,48 @@ public class WebhookFunction(IRepoStore repoStore, IOptions<GitHubOptions> gitHu
     private async Task<GitHubWebhookResponse> HandlePullRequest(string body)
     {
         var webhook = JsonSerializer.Deserialize<GitHubWebhook>(body, JsonSerializerOptions.Web);
-
-        if (webhook?.ToRequest() is not { } request
-            || await GetOrganization(request.RepositoryId) is not { } org)
+        if (webhook is null)
             return new GitHubWebhookResponse();
 
-        request = request with { Organization = org };
+        var response = new GitHubWebhookResponse();
 
-        return new GitHubWebhookResponse { ReviewQueueMessage = JsonSerializer.Serialize(request) };
+        // Review queue
+        if (webhook.ToRequest() is { } request
+            && await GetOrganization(request.RepositoryId) is { } org)
+        {
+            request = request with { Organization = org };
+            response.ReviewQueueMessage = JsonSerializer.Serialize(request);
+        }
+
+        // Doc watch queue — route merged PRs to any doc watch projects watching this repo
+        if (aporiaOptions.Value.EnableDocWatch
+            && webhook.Action is "closed"
+            && webhook.PullRequest is { Merged: true }
+            && !IsDocWatchPr(webhook))
+        {
+            var repoId = webhook.Repository.FullName.Replace("/", "__");
+            var projects = await docWatchStore.GetBySourceAsync(repoId);
+
+            response.DocWatchQueueMessages = projects
+                .Select(p => JsonSerializer.Serialize(new DocWatchRequest(
+                    Provider: GitProvider.GitHub,
+                    SourceRepo: repoId,
+                    SourceRepoName: webhook.Repository.Name,
+                    PullRequestId: webhook.PullRequest.Number,
+                    SourceBranch: webhook.PullRequest.Head.Ref,
+                    TargetBranch: webhook.PullRequest.Base.Ref,
+                    DocsRepo: p.Id,
+                    Organization: p.Organization,
+                    InstallationId: webhook.Installation?.Id)))
+                .ToList();
+        }
+
+        return response;
     }
+
+    private static bool IsDocWatchPr(GitHubWebhook webhook) =>
+        webhook.PullRequest.Head.Ref.StartsWith(DocWatchConstants.BranchPrefix)
+        || webhook.PullRequest.Title?.StartsWith(DocWatchConstants.TitlePrefix, StringComparison.OrdinalIgnoreCase) == true;
 
     private async Task<GitHubWebhookResponse> HandleComment(string body, string eventType)
     {
@@ -157,6 +191,9 @@ public class GitHubWebhookResponse
 
     [QueueOutput("chat-queue")]
     public string? ChatQueueMessage { get; set; }
+
+    [QueueOutput("docwatch-queue")]
+    public List<string>? DocWatchQueueMessages { get; set; }
 }
 
 public class WebhookResponse

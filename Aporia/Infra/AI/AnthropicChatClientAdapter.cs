@@ -112,32 +112,70 @@ public sealed class AnthropicChatClientAdapter(IChatClient inner, ILogger<Anthro
     }
 
     /// <summary>
-    /// Recursively adds "additionalProperties": false to every object-type node in the schema.
-    /// Claude's structured output requires this on all object types.
+    /// Recursively patches the schema for Anthropic compatibility:
+    /// 1. Resolves all <c>$ref</c> pointers by inlining definitions from <c>$defs</c>.
+    /// 2. Adds <c>"additionalProperties": false</c> to every object-type node.
     /// </summary>
-    private static JsonElement AddAdditionalPropertiesFalse(JsonElement element) => element.ValueKind switch
+    private static JsonElement AddAdditionalPropertiesFalse(JsonElement element) =>
+        AddAdditionalPropertiesFalse(element, ResolveDefsMap(element));
+
+    private static JsonElement AddAdditionalPropertiesFalse(JsonElement element, Dictionary<string, JsonElement> defs) => element.ValueKind switch
     {
-        JsonValueKind.Object => PatchObject(element),
-        JsonValueKind.Array => JsonSerializer.SerializeToElement(element.EnumerateArray().Select(AddAdditionalPropertiesFalse)),
+        JsonValueKind.Object => PatchObject(element, defs),
+        JsonValueKind.Array => JsonSerializer.SerializeToElement(element.EnumerateArray().Select(e => AddAdditionalPropertiesFalse(e, defs))),
         _ => element
     };
 
-    private static JsonElement PatchObject(JsonElement element)
+    private static JsonElement PatchObject(JsonElement element, Dictionary<string, JsonElement> defs)
     {
+        // Resolve $ref by inlining the referenced definition
+        if (element.TryGetProperty("$ref", out var refValue))
+        {
+            var refPath = refValue.GetString();
+            if (refPath is not null && defs.TryGetValue(refPath, out var resolved))
+                return AddAdditionalPropertiesFalse(resolved, defs);
+        }
+
         var dict = new Dictionary<string, JsonElement>();
         var isObject = false;
 
         foreach (var prop in element.EnumerateObject())
         {
+            // Drop $defs from the output — all refs are now inlined
+            if (prop.Name is "$defs" or "definitions")
+                continue;
+
             if (prop is { Name: "type", Value.ValueKind: JsonValueKind.String } && prop.Value.GetString() == "object")
                 isObject = true;
 
-            dict[prop.Name] = AddAdditionalPropertiesFalse(prop.Value);
+            dict[prop.Name] = AddAdditionalPropertiesFalse(prop.Value, defs);
         }
 
         if (isObject && !dict.ContainsKey("additionalProperties"))
             dict["additionalProperties"] = JsonSerializer.SerializeToElement(false);
 
         return JsonSerializer.SerializeToElement(dict);
+    }
+
+    /// <summary>
+    /// Builds a map of all JSON pointer paths to their JsonElement values so that
+    /// <c>$ref</c> pointers (both <c>#/$defs/...</c> and <c>#/properties/...</c>) can be resolved.
+    /// </summary>
+    private static Dictionary<string, JsonElement> ResolveDefsMap(JsonElement root)
+    {
+        var defs = new Dictionary<string, JsonElement>();
+        CollectPaths(root, "#", defs);
+        return defs;
+    }
+
+    private static void CollectPaths(JsonElement element, string path, Dictionary<string, JsonElement> paths)
+    {
+        paths[path] = element;
+
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in element.EnumerateObject())
+                CollectPaths(prop.Value, $"{path}/{prop.Name}", paths);
+        }
     }
 }

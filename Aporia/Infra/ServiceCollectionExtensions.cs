@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRepoStore, RepoStore>();
         services.AddSingleton<IPrStateStore, PrStateStore>();
         services.AddSingleton<IReviewStore, ReviewStore>();
+        services.AddSingleton<IDocWatchStore, DocWatchStore>();
         services.AddCodeGraph();
 
         services.AddSingleton<ChatHistoryProvider>(sp =>

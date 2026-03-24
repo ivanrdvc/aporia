@@ -11,6 +11,7 @@ public class CosmosOptions
     public const string ReviewsContainer = "reviews";
     public const string SessionsContainer = "sessions";
     public const string CodeGraphContainer = "code-graph";
+    public const string DocWatchContainer = "doc-watch";
 
     [Required]
     public string ConnectionString { get; init; } = null!;

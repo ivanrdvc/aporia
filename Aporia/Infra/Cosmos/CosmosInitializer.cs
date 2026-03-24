@@ -50,6 +50,11 @@ public class CosmosInitializer(
             "/repoId",
             cancellationToken: cancellationToken);
 
+        await database.CreateContainerIfNotExistsAsync(
+            CosmosOptions.DocWatchContainer,
+            "/id",
+            cancellationToken: cancellationToken);
+
         logger.LogInformation("Cosmos containers ensured for database {Database}", cosmos.Database);
     }
 
