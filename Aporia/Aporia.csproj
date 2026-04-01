@@ -24,7 +24,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.5" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Anthropic" Version="12.9.0" />
+    <PackageReference Include="Anthropic" Version="12.10.0" />
     <PackageReference Include="DiffPlex" Version="1.9.0" />
     <PackageReference Include="Microsoft.Agents.AI.CosmosNoSql" Version="1.0.0-preview.260311.1" />
     <!-- Azure Functions -->
