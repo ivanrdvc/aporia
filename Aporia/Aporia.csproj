@@ -50,8 +50,8 @@
     <!-- Copilot strategy -->
     <PackageReference Include="GitHub.Copilot.SDK" Version="0.1.29" />
     <PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" Version="1.0.0-preview.260311.1" />
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-rc4" />
-    <PackageReference Include="Microsoft.Agents.AI.Hosting" Version="1.0.0-preview.260311.1" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-rc5" />
+    <PackageReference Include="Microsoft.Agents.AI.Hosting" Version="1.0.0-preview.260330.1" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.4.0" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.4.0" />
     <PackageReference Include="Azure.AI.OpenAI" Version="2.8.0-beta.1" />
