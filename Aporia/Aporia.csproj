@@ -26,7 +26,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Anthropic" Version="12.9.0" />
     <PackageReference Include="DiffPlex" Version="1.9.0" />
-    <PackageReference Include="Microsoft.Agents.AI.CosmosNoSql" Version="1.0.0-preview.260311.1" />
+    <PackageReference Include="Microsoft.Agents.AI.CosmosNoSql" Version="1.0.0-preview.260330.1" />
     <!-- Azure Functions -->
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.51.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.0" />
