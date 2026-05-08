@@ -27,7 +27,7 @@ jobs:
       - name: Publish
         run: dotnet publish Aporia/Aporia.csproj -c Release -o ./publish
 
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
