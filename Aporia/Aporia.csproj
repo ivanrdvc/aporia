@@ -26,7 +26,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Anthropic" Version="12.9.0" />
     <PackageReference Include="DiffPlex" Version="1.9.0" />
-    <PackageReference Include="Microsoft.Agents.AI.CosmosNoSql" Version="1.0.0-preview.260311.1" />
+    <PackageReference Include="Microsoft.Agents.AI.CosmosNoSql" Version="1.0.0-preview.260402.1" />
     <!-- Azure Functions -->
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.51.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.0" />
@@ -49,10 +49,10 @@
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.3" />
     <!-- Copilot strategy -->
     <PackageReference Include="GitHub.Copilot.SDK" Version="0.1.29" />
-    <PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" Version="1.0.0-preview.260330.1" />
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-rc4" />
-    <PackageReference Include="Microsoft.Agents.AI.Hosting" Version="1.0.0-preview.260311.1" />
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.4.0" />
+    <PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" Version="1.0.0-preview.260402.1" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.8.0" />
+    <PackageReference Include="Microsoft.Agents.AI.Hosting" Version="1.0.0-preview.260402.1" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.4.0" />
     <PackageReference Include="Azure.AI.OpenAI" Version="2.8.0-beta.1" />
     <PackageReference Include="TreeSitter.DotNet" Version="1.3.0" />
