@@ -28,19 +28,19 @@
     <PackageReference Include="DiffPlex" Version="1.9.0" />
     <PackageReference Include="Microsoft.Agents.AI.CosmosNoSql" Version="1.0.0-preview.260311.1" />
     <!-- Azure Functions -->
-    <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.51.0" />
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.52.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.1" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.OpenApi" Version="1.6.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Storage.Queues" Version="5.*" />
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.7" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.1.0" />
     <!-- OpenTelemetry -->
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.1.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.2.0" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.3.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.0" />
 
-    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.6.0" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.8.3" />
     <!-- Existing -->
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="20.268.0-preview" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.17.0" />
